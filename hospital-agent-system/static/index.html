@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Workflow Automation — Command Center</title>
+    <meta name="description" content="AI-powered hospital workflow automation with Agent-to-Agent communication and MCP tool access">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- ── Sidebar ─────────────────────────────── -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <span class="logo-title">MedFlow</span>
+                    <span class="logo-subtitle">Command Center</span>
+                </div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="admit" id="nav-admit">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                <span>Admit Patient</span>
+            </a>
+            <a href="#" class="nav-item" data-page="events" id="nav-events">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>Trigger Event</span>
+            </a>
+            <a href="#" class="nav-item" data-page="logs" id="nav-logs">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Execution Logs</span>
+            </a>
+            <a href="#" class="nav-item" data-page="agents" id="nav-agents">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>Agents</span>
+            </a>
+            <a href="#" class="nav-item" data-page="tools" id="nav-tools">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <span>MCP Tools</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="system-status" id="system-status">
+                <div class="status-dot"></div>
+                <span>System Online</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ── Main Content ────────────────────────── -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="top-header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menu-toggle">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <h1 class="page-title" id="page-title">Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <div class="health-badges" id="health-badges">
+                    <div class="badge badge-agents"><span class="badge-count" id="badge-agents">0</span> Agents</div>
+                    <div class="badge badge-tools"><span class="badge-count" id="badge-tools">0</span> Tools</div>
+                    <div class="badge badge-rules"><span class="badge-count" id="badge-rules">0</span> Rules</div>
+                </div>
+                <div class="header-time" id="header-time"></div>
+            </div>
+        </header>
+
+        <!-- ── Page: Dashboard ───────────────────── -->
+        <section class="page active" id="page-dashboard">
+            <div class="stats-grid">
+                <div class="stat-card stat-primary">
+                    <div class="stat-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-workflows">0</span>
+                        <span class="stat-label">Workflows Run</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-success">
+                    <div class="stat-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-completed">0</span>
+                        <span class="stat-label">Steps Completed</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-warning">
+                    <div class="stat-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-avg-time">0ms</span>
+                        <span class="stat-label">Avg Duration</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-danger">
+                    <div class="stat-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-failures">0</span>
+                        <span class="stat-label">Failures</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <!-- Recent Activity -->
+                <div class="card card-lg">
+                    <div class="card-header">
+                        <h2>Recent Activity</h2>
+                        <button class="btn btn-sm btn-ghost" onclick="loadDashboard()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="activity-list" id="activity-list">
+                            <div class="empty-state">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <p>No workflow executions yet</p>
+                                <span>Admit a patient or trigger an event to get started</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Quick Actions</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="quick-actions">
+                            <button class="quick-action-btn" onclick="quickAdmit()">
+                                <div class="qa-icon qa-admit">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                                </div>
+                                <span>Quick Admit</span>
+                                <small>Patient ID 101</small>
+                            </button>
+                            <button class="quick-action-btn" onclick="quickEmergency()">
+                                <div class="qa-icon qa-emergency">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                </div>
+                                <span>Emergency</span>
+                                <small>Code Blue</small>
+                            </button>
+                            <button class="quick-action-btn" onclick="quickDischarge()">
+                                <div class="qa-icon qa-discharge">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                </div>
+                                <span>Discharge</span>
+                                <small>Patient ID 101</small>
+                            </button>
+                            <button class="quick-action-btn" onclick="quickLabResults()">
+                                <div class="qa-icon qa-lab">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                </div>
+                                <span>Lab Results</span>
+                                <small>Notify Staff</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Agent Status</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="agent-status-list" id="agent-status-list"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Page: Admit Patient ───────────────── -->
+        <section class="page" id="page-admit">
+            <div class="form-page-layout">
+                <div class="form-card">
+                    <div class="form-card-header">
+                        <div class="form-icon admit-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                        </div>
+                        <h2>Admit New Patient</h2>
+                        <p>Enter a patient ID to trigger the automated admission workflow. The system will dynamically plan and execute all steps.</p>
+                    </div>
+                    <div class="form-body">
+                        <div class="input-group">
+                            <label for="admit-patient-id">Patient ID</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="admit-patient-id" placeholder="e.g. 101" min="1" value="101">
+                                <div class="input-hint">Available: 101–108</div>
+                            </div>
+                        </div>
+                        <div class="patient-cards" id="patient-quick-select">
+                            <div class="patient-chip" onclick="selectPatient(101)">
+                                <span class="chip-id">101</span>
+                                <span class="chip-name">John Smith</span>
+                                <span class="chip-dept">Cardiology</span>
+                            </div>
+                            <div class="patient-chip" onclick="selectPatient(102)">
+                                <span class="chip-id">102</span>
+                                <span class="chip-name">Sarah Johnson</span>
+                                <span class="chip-dept">Neurology</span>
+                            </div>
+                            <div class="patient-chip" onclick="selectPatient(103)">
+                                <span class="chip-id">103</span>
+                                <span class="chip-name">Mike Davis</span>
+                                <span class="chip-dept">Orthopedics</span>
+                            </div>
+                            <div class="patient-chip" onclick="selectPatient(104)">
+                                <span class="chip-id">104</span>
+                                <span class="chip-name">Emily Chen</span>
+                                <span class="chip-dept">General</span>
+                            </div>
+                            <div class="patient-chip" onclick="selectPatient(105)">
+                                <span class="chip-id">105</span>
+                                <span class="chip-name">Robert Wilson</span>
+                                <span class="chip-dept">Cardiology</span>
+                            </div>
+                            <div class="patient-chip" onclick="selectPatient(106)">
+                                <span class="chip-id">106</span>
+                                <span class="chip-name">Lisa Anderson</span>
+                                <span class="chip-dept">Oncology</span>
+                            </div>
+                            <div class="patient-chip" onclick="selectPatient(107)">
+                                <span class="chip-id">107</span>
+                                <span class="chip-name">James Taylor</span>
+                                <span class="chip-dept">Pulmonology</span>
+                            </div>
+                            <div class="patient-chip" onclick="selectPatient(108)">
+                                <span class="chip-id">108</span>
+                                <span class="chip-name">Maria Garcia</span>
+                                <span class="chip-dept">General</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-lg" id="btn-admit" onclick="admitPatient()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+                            Run Admission Workflow
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Execution Result -->
+                <div class="result-panel" id="admit-result" style="display:none">
+                    <div class="result-header">
+                        <h3>Workflow Execution</h3>
+                        <div class="result-status" id="admit-status"></div>
+                    </div>
+                    <div class="workflow-timeline" id="admit-timeline"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Page: Trigger Event ───────────────── -->
+        <section class="page" id="page-events">
+            <div class="form-page-layout">
+                <div class="form-card">
+                    <div class="form-card-header">
+                        <div class="form-icon event-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        </div>
+                        <h2>Trigger Event</h2>
+                        <p>Send any event into the system. The planner dynamically generates a workflow plan based on pattern-matched rules.</p>
+                    </div>
+                    <div class="form-body">
+                        <div class="event-presets">
+                            <h4>Preset Events</h4>
+                            <div class="preset-grid">
+                                <button class="preset-btn preset-admit" onclick="setEvent('patient_admitted', 101)">
+                                    <span class="preset-emoji">🏥</span>
+                                    <span class="preset-name">Patient Admitted</span>
+                                </button>
+                                <button class="preset-btn preset-discharge" onclick="setEvent('patient_discharged', 101)">
+                                    <span class="preset-emoji">🚪</span>
+                                    <span class="preset-name">Patient Discharged</span>
+                                </button>
+                                <button class="preset-btn preset-emergency" onclick="setEvent('emergency_code_blue', 103)">
+                                    <span class="preset-emoji">🚨</span>
+                                    <span class="preset-name">Emergency Code Blue</span>
+                                </button>
+                                <button class="preset-btn preset-lab" onclick="setEvent('lab_results_ready', 102)">
+                                    <span class="preset-emoji">🧪</span>
+                                    <span class="preset-name">Lab Results Ready</span>
+                                </button>
+                                <button class="preset-btn preset-custom" onclick="setEvent('emergency_cardiac', 105)">
+                                    <span class="preset-emoji">❤️</span>
+                                    <span class="preset-name">Emergency Cardiac</span>
+                                </button>
+                                <button class="preset-btn preset-unknown" onclick="setEvent('unknown_event', 101)">
+                                    <span class="preset-emoji">❓</span>
+                                    <span class="preset-name">Unknown Event</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="event-type">Event Type</label>
+                            <input type="text" id="event-type" placeholder="e.g. patient_admitted">
+                        </div>
+                        <div class="input-group">
+                            <label for="event-patient-id">Patient ID</label>
+                            <input type="number" id="event-patient-id" placeholder="e.g. 101" min="1" value="101">
+                        </div>
+                        <button class="btn btn-primary btn-lg" id="btn-trigger" onclick="triggerEvent()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            Execute Event
+                        </button>
+                    </div>
+                </div>
+
+                <div class="result-panel" id="event-result" style="display:none">
+                    <div class="result-header">
+                        <h3>Workflow Execution</h3>
+                        <div class="result-status" id="event-status"></div>
+                    </div>
+                    <div class="workflow-timeline" id="event-timeline"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Page: Execution Logs ──────────────── -->
+        <section class="page" id="page-logs">
+            <div class="page-header-bar">
+                <div>
+                    <h2>Execution Logs</h2>
+                    <p>Complete audit trail of all workflow executions</p>
+                </div>
+                <button class="btn btn-ghost" onclick="loadLogs()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    Refresh
+                </button>
+            </div>
+            <div class="logs-container" id="logs-container">
+                <div class="empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <p>No execution logs yet</p>
+                    <span>Run a workflow to see logs here</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Page: Agents ──────────────────────── -->
+        <section class="page" id="page-agents">
+            <div class="page-header-bar">
+                <div>
+                    <h2>Agent Registry</h2>
+                    <p>All registered agents and their capabilities</p>
+                </div>
+            </div>
+            <div class="agents-grid" id="agents-grid"></div>
+        </section>
+
+        <!-- ── Page: Tools ───────────────────────── -->
+        <section class="page" id="page-tools">
+            <div class="page-header-bar">
+                <div>
+                    <h2>MCP Tool Registry</h2>
+                    <p>Centralized tools that agents use to interact with external systems</p>
+                </div>
+            </div>
+            <div class="tools-grid" id="tools-grid"></div>
+        </section>
+    </main>
+
+    <!-- Toast notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loader">
+            <div class="loader-ring"></div>
+            <span>Executing workflow...</span>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
