@@ -130,6 +130,7 @@ body {
     font-weight: 800;
     letter-spacing: -0.02em;
     background: linear-gradient(135deg, #c7d2fe, #e0e7ff);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -264,6 +265,22 @@ body {
     display: flex;
     align-items: center;
     gap: 20px;
+}
+
+.auth-controls {
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.auth-user-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 4px 8px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    border-radius: 999px;
 }
 
 .health-badges {
@@ -810,7 +827,19 @@ body {
     background: rgba(99, 102, 241, 0.08);
 }
 
-.preset-emoji { font-size: 1.4rem; }
+.preset-icon {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preset-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
 .preset-name { font-size: 0.78rem; font-weight: 600; text-align: center; }
 
 /* ── Result Panel ──────────────────────────────────── */
@@ -847,6 +876,16 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+}
+
+.result-status-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.result-status-content svg {
+    flex-shrink: 0;
 }
 
 .result-status.completed {
@@ -983,6 +1022,14 @@ body {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.timeline-duration svg {
+    opacity: 0.85;
+    flex-shrink: 0;
 }
 
 .timeline-a2a {
@@ -1302,6 +1349,109 @@ body {
     color: #bfdbfe;
 }
 
+/* ── Auth Overlay ─────────────────────────────── */
+.auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 12, 20, 0.75);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1500;
+}
+
+.auth-overlay.active {
+    display: flex;
+}
+
+.auth-card {
+    width: min(420px, calc(100vw - 32px));
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 26px;
+}
+
+.auth-card-header {
+    text-align: center;
+    margin-bottom: 18px;
+}
+
+.auth-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--border-radius);
+    margin: 0 auto 10px;
+    background: rgba(99, 102, 241, 0.16);
+    color: var(--accent-primary-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-card-header h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.auth-card-header p {
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+}
+
+.auth-form .input-group {
+    margin-bottom: 12px;
+}
+
+.auth-error {
+    min-height: 20px;
+    font-size: 0.82rem;
+    color: #fca5a5;
+    margin-top: 8px;
+}
+
+.demo-accounts {
+    margin-top: 10px;
+}
+
+.demo-label {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.demo-btn {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    font-size: 0.74rem;
+    padding: 8px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.demo-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+.role-hidden {
+    display: none !important;
+}
+
 /* ── Loading Overlay ───────────────────────────────── */
 .loading-overlay {
     position: fixed;
@@ -1380,4 +1530,5 @@ body {
     .stats-grid { grid-template-columns: 1fr; }
     .health-badges { display: none; }
     .patient-cards { grid-template-columns: 1fr; }
+    .auth-user-label { display: none; }
 }

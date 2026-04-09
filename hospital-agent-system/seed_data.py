@@ -18,6 +18,8 @@ import os
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.security import get_password_hash
+
 logger = logging.getLogger("seed_data")
 
 # ─────────────────────────────────────────────
@@ -174,6 +176,83 @@ SAMPLE_BEDS = [
     {"id": 20, "ward": "orthopedics", "bed_number": "ORTHO-02", "status": "available"},
 ]
 
+SAMPLE_CHARGE_CODES = [
+    {"service_key": "admission", "service_name": "Admission", "code": "ADM001", "amount": 5000.0},
+    {"service_key": "lab_cbc", "service_name": "CBC Lab", "code": "LAB010", "amount": 800.0},
+    {"service_key": "lab_metabolic", "service_name": "Metabolic Panel", "code": "LAB020", "amount": 1200.0},
+    {"service_key": "xray", "service_name": "X-Ray", "code": "RAD010", "amount": 2500.0},
+    {"service_key": "icu_day", "service_name": "ICU Bed Day", "code": "ICU001", "amount": 15000.0},
+    {"service_key": "general_day", "service_name": "General Bed Day", "code": "GEN001", "amount": 5000.0},
+    {"service_key": "doctor_consult", "service_name": "Doctor Consultation", "code": "CON001", "amount": 2000.0},
+    {"service_key": "medication", "service_name": "Medication", "code": "MED001", "amount": 500.0},
+]
+
+SAMPLE_INSURANCE_ELIGIBILITY_RULES = [
+    {
+        "insurance_provider": "BlueCross",
+        "plan_type": "premium",
+        "coverage_percentage": 85.0,
+        "covered_services": ["inpatient", "emergency", "lab", "radiology", "icu"],
+    },
+    {
+        "insurance_provider": "Aetna",
+        "plan_type": "standard",
+        "coverage_percentage": 70.0,
+        "covered_services": ["inpatient", "emergency", "lab", "radiology"],
+    },
+    {
+        "insurance_provider": "Medicare",
+        "plan_type": "senior",
+        "coverage_percentage": 75.0,
+        "covered_services": ["inpatient", "emergency", "lab", "radiology", "rehab"],
+    },
+    {
+        "insurance_provider": "default",
+        "plan_type": "standard",
+        "coverage_percentage": 60.0,
+        "covered_services": ["inpatient", "emergency", "lab"],
+    },
+    {
+        "insurance_provider": "default",
+        "plan_type": "premium",
+        "coverage_percentage": 80.0,
+        "covered_services": ["inpatient", "emergency", "lab", "radiology", "icu"],
+    },
+    {
+        "insurance_provider": "default",
+        "plan_type": "general",
+        "coverage_percentage": 60.0,
+        "covered_services": ["inpatient", "emergency", "lab"],
+    },
+]
+
+SAMPLE_USERS = [
+    {
+        "username": "super_admin",
+        "email": "super_admin@hospital.local",
+        "password": "SuperAdmin@123",
+        "role": "super_admin",
+    },
+    {
+        "username": "staff_user",
+        "email": "staff@hospital.local",
+        "password": "StaffUser@123",
+        "role": "staff",
+    },
+    {
+        "username": "doctor_user",
+        "email": "doctor@hospital.local",
+        "password": "DoctorUser@123",
+        "role": "doctor",
+    },
+    {
+        "username": "auditor_user",
+        "email": "auditor@hospital.local",
+        "password": "AuditorUser@123",
+        "role": "auditor",
+    },
+]
+
 
 async def seed_database():
     """
@@ -183,7 +262,15 @@ async def seed_database():
     Plan 1.0: also seeds beds inventory.
     Called on application startup.
     """
-    from models.database import async_session_factory, Patient, Doctor, Bed
+    from models.database import (
+        async_session_factory,
+        Patient,
+        Doctor,
+        Bed,
+        ChargeCode,
+        InsuranceEligibilityRule,
+        User,
+    )
 
     async with async_session_factory() as session:
         # Check if patients already seeded
@@ -223,6 +310,50 @@ async def seed_database():
                 session.add(bed)
             await session.commit()
             logger.info(f"✅ Seeded {len(SAMPLE_BEDS)} beds across all wards")
+
+        # Check if charge codes already seeded
+        charge_result = await session.execute(select(ChargeCode).limit(1))
+        if charge_result.scalar_one_or_none() is not None:
+            logger.info("📦 Charge codes already seeded — skipping")
+        else:
+            logger.info("💳 Seeding charge code catalog...")
+            for c_data in SAMPLE_CHARGE_CODES:
+                code = ChargeCode(**c_data)
+                session.add(code)
+            await session.commit()
+            logger.info(f"✅ Seeded {len(SAMPLE_CHARGE_CODES)} charge code mappings")
+
+        # Check if insurance eligibility rules already seeded
+        rule_result = await session.execute(select(InsuranceEligibilityRule).limit(1))
+        if rule_result.scalar_one_or_none() is not None:
+            logger.info("📦 Insurance eligibility rules already seeded — skipping")
+        else:
+            logger.info("🛡️ Seeding insurance eligibility rules...")
+            for r_data in SAMPLE_INSURANCE_ELIGIBILITY_RULES:
+                rule = InsuranceEligibilityRule(**r_data)
+                session.add(rule)
+            await session.commit()
+            logger.info(
+                f"✅ Seeded {len(SAMPLE_INSURANCE_ELIGIBILITY_RULES)} insurance eligibility rules"
+            )
+
+        # Check if users already seeded
+        user_result = await session.execute(select(User).limit(1))
+        if user_result.scalar_one_or_none() is not None:
+            logger.info("📦 Users already seeded — skipping")
+        else:
+            logger.info("🔐 Seeding default auth users...")
+            for u_data in SAMPLE_USERS:
+                user = User(
+                    username=u_data["username"],
+                    email=u_data["email"],
+                    password_hash=get_password_hash(u_data["password"]),
+                    role=u_data["role"],
+                    is_active=True,
+                )
+                session.add(user)
+            await session.commit()
+            logger.info(f"✅ Seeded {len(SAMPLE_USERS)} users for RBAC auth")
 
 
 # Allow running standalone

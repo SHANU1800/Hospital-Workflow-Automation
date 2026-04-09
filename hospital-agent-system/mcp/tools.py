@@ -4,7 +4,7 @@ MCP Tools — Concrete tool implementations.
 These tools are the ONLY way agents interact with external systems.
 Each tool is registered with the MCP ToolRegistry on import.
 
-Plan 1.0 Tool Catalog (30 tools):
+Plan 1.0 Tool Catalog (31 tools):
 ──────────────────────────────────
 Core Platform (5):
   get_patient_data, assign_doctor, send_notification,
@@ -23,6 +23,9 @@ Billing Basics (8):
   calculate_estimated_bill, generate_itemized_invoice,
   create_claim, validate_claim, submit_claim, track_claim_status
 
+Insurance (1):
+    get_insurance_eligibility
+
 Lab Critical Path (6):
   create_lab_order, collect_sample, track_sample_status,
   get_lab_result, flag_critical_lab_result, attach_lab_report
@@ -35,7 +38,7 @@ import random
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from models.database import (
     async_session_factory,
@@ -47,6 +50,8 @@ from models.database import (
     LabOrder,
     BillingCase,
     InsuranceClaim,
+    ChargeCode,
+    InsuranceEligibilityRule,
 )
 from mcp.tool_registry import register_tool
 
@@ -685,17 +690,6 @@ async def get_occupancy_snapshot() -> dict:
 # SECTION 4 — BILLING BASICS TOOLS (8)
 # ═══════════════════════════════════════════════════════
 
-_CHARGE_CODES = {
-    "admission": ("ADM001", 5000.0),
-    "lab_cbc": ("LAB010", 800.0),
-    "lab_metabolic": ("LAB020", 1200.0),
-    "xray": ("RAD010", 2500.0),
-    "icu_day": ("ICU001", 15000.0),
-    "general_day": ("GEN001", 5000.0),
-    "doctor_consult": ("CON001", 2000.0),
-    "medication": ("MED001", 500.0),
-}
-
 
 @register_tool(
     name="initiate_billing_case",
@@ -725,14 +719,33 @@ async def initiate_billing_case(patient_id: int) -> dict:
     parameters={"services": "List[str] - service names to map"},
 )
 async def map_services_to_charge_codes(services: list) -> dict:
-    """Map service names to standardized charge codes."""
+    """Map service names to standardized charge codes from the database."""
+    service_keys = [svc.lower().strip().replace(" ", "_") for svc in services]
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(ChargeCode).where(
+                ChargeCode.service_key.in_(service_keys),
+                ChargeCode.is_active == True,  # noqa: E712
+            )
+        )
+        db_codes = result.scalars().all()
+
+    code_map = {c.service_key: c for c in db_codes}
     mapped = []
     unmapped = []
+
     for svc in services:
-        key = svc.lower().replace(" ", "_")
-        if key in _CHARGE_CODES:
-            code, amount = _CHARGE_CODES[key]
-            mapped.append({"service": svc, "code": code, "amount": amount})
+        key = svc.lower().strip().replace(" ", "_")
+        code_row = code_map.get(key)
+        if code_row:
+            mapped.append(
+                {
+                    "service": svc,
+                    "code": code_row.code,
+                    "amount": code_row.amount,
+                }
+            )
         else:
             unmapped.append(svc)
             mapped.append({"service": svc, "code": "MISC001", "amount": 0.0})
@@ -741,6 +754,66 @@ async def map_services_to_charge_codes(services: list) -> dict:
         "mapped_services": mapped,
         "unmapped_services": unmapped,
         "total": sum(m["amount"] for m in mapped),
+    }
+
+
+@register_tool(
+    name="get_insurance_eligibility",
+    description="Validate insurance details and fetch coverage rules from database",
+    parameters={
+        "insurance_provider": "String - insurance company name",
+        "plan_type": "String - insurance plan type",
+        "member_id": "String - insurance member ID",
+    },
+)
+async def get_insurance_eligibility(
+    insurance_provider: str,
+    plan_type: str,
+    member_id: str,
+) -> dict:
+    """Return eligibility and coverage using DB-configured insurance rules."""
+    normalized_provider = (insurance_provider or "").strip().lower()
+    normalized_plan = (plan_type or "").strip().lower()
+
+    issues = []
+    if not member_id or member_id.strip() in ("", "unknown"):
+        issues.append("member_id_missing")
+    if normalized_provider in ("", "unknown", "none"):
+        issues.append("provider_unknown")
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(InsuranceEligibilityRule).where(
+                func.lower(InsuranceEligibilityRule.insurance_provider)
+                == normalized_provider,
+                func.lower(InsuranceEligibilityRule.plan_type) == normalized_plan,
+                InsuranceEligibilityRule.is_active == True,  # noqa: E712
+            )
+        )
+        rule = result.scalar_one_or_none()
+
+        if rule is None:
+            fallback = await session.execute(
+                select(InsuranceEligibilityRule).where(
+                    func.lower(InsuranceEligibilityRule.insurance_provider) == "default",
+                    func.lower(InsuranceEligibilityRule.plan_type) == normalized_plan,
+                    InsuranceEligibilityRule.is_active == True,  # noqa: E712
+                )
+            )
+            rule = fallback.scalar_one_or_none()
+
+    if rule is None:
+        issues.append("plan_not_supported")
+
+    eligible = len(issues) == 0
+    coverage_pct = (rule.coverage_percentage if rule else 0.0) if eligible else 0.0
+    covered_services = (rule.covered_services if rule else []) if eligible else []
+
+    return {
+        "eligible": eligible,
+        "coverage_percentage": coverage_pct,
+        "covered_services": covered_services,
+        "issues": issues,
     }
 
 

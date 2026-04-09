@@ -93,7 +93,12 @@ class BaseAgent(ABC):
     # MCP Tool Access — THE ONLY WAY to access external resources
     # ─────────────────────────────────────────
 
-    async def call_tool(self, tool_name: str, params: Dict[str, Any]) -> MCPToolCall:
+    async def call_tool(
+        self,
+        tool_name: str,
+        params: Dict[str, Any],
+        user_role: Optional[str] = None,
+    ) -> MCPToolCall:
         """
         Call an MCP tool. This is the ONLY way agents should access
         databases, external services, or any other resource.
@@ -110,6 +115,7 @@ class BaseAgent(ABC):
             tool_name=tool_name,
             params=params,
             caller_agent=self.name,
+            user_role=user_role,
         )
 
     # ─────────────────────────────────────────

@@ -122,6 +122,31 @@ class Doctor(Base):
         }
 
 
+class User(Base):
+    """Application users for JWT authentication and RBAC."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100), unique=True, index=True, nullable=False)
+    email = Column(String(200), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(50), nullable=False, default="staff")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "role": self.role,
+            "is_active": self.is_active,
+            "created_at": str(self.created_at) if self.created_at else None,
+            "updated_at": str(self.updated_at) if self.updated_at else None,
+        }
+
+
 class Notification(Base):
     """Notification log — every alert/notification sent is recorded here."""
     __tablename__ = "notifications"
@@ -306,6 +331,54 @@ class InsuranceClaim(Base):
             "approved_amount": self.approved_amount,
             "prior_auth_number": self.prior_auth_number,
             "eligibility_verified": self.eligibility_verified,
+        }
+
+
+class ChargeCode(Base):
+    """Service to billing code lookup table."""
+    __tablename__ = "charge_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_key = Column(String(100), nullable=False, unique=True, index=True)
+    service_name = Column(String(200), nullable=False)
+    code = Column(String(50), nullable=False)
+    amount = Column(Float, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "service_key": self.service_key,
+            "service_name": self.service_name,
+            "code": self.code,
+            "amount": self.amount,
+            "is_active": self.is_active,
+        }
+
+
+class InsuranceEligibilityRule(Base):
+    """Insurance eligibility and coverage rules by provider + plan."""
+    __tablename__ = "insurance_eligibility_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    insurance_provider = Column(String(200), nullable=False, index=True)
+    plan_type = Column(String(100), nullable=False, index=True)
+    coverage_percentage = Column(Float, nullable=False, default=0.0)
+    covered_services = Column(JSON, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "insurance_provider": self.insurance_provider,
+            "plan_type": self.plan_type,
+            "coverage_percentage": self.coverage_percentage,
+            "covered_services": self.covered_services or [],
+            "is_active": self.is_active,
         }
 
 

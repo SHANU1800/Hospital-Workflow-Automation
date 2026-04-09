@@ -3,7 +3,7 @@ Hospital Workflow Automation — FastAPI Application (Plan 1.0).
 
 This is the main entry point. It wires together all layers:
 - Initializes the database (including Plan 1.0 tables: beds, lab, billing, etc.)
-- Registers all 30 MCP tools (by importing mcp.tools)
+- Registers all 31 MCP tools (by importing mcp.tools)
 - Creates all 9 agents and registers them with the orchestrator
 - Exposes API endpoints
 
@@ -41,11 +41,12 @@ from typing import Any, Dict, Optional
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 # ── Configure logging before anything else ──
 logging.basicConfig(
@@ -57,8 +58,24 @@ logging.basicConfig(
 logger = logging.getLogger("api")
 
 # ── Import all layers ──
-from models.database import init_db
-from models.schemas import AdmitPatientRequest, GenericEventRequest
+from api.dependencies import get_current_user, require_roles
+from api.security import (
+    create_access_token,
+    get_jwt_expire_minutes,
+    validate_jwt_config,
+    verify_password,
+)
+from models.database import ExecutionRecord, Patient, User, async_session_factory, init_db
+from models.schemas import (
+    AdmitPatientRequest,
+    CreatePatientRequest,
+    GenericEventRequest,
+    LoginRequest,
+    PatientResponse,
+    TokenResponse,
+    UserPublic,
+    UserRole,
+)
 from mcp.tool_registry import get_registry
 import mcp.tools  # noqa: F401 — triggers all 30 tool registrations
 
@@ -120,7 +137,8 @@ async def lifespan(app: FastAPI):
     """
     logger.info("🏥 Hospital Workflow Automation System (Plan 1.0) starting...")
 
-    # 1. Initialize database
+    # 1. Validate auth config and initialize database
+    validate_jwt_config()
     await init_db()
 
     # 2. Seed sample data
@@ -169,7 +187,7 @@ app = FastAPI(
         "Hierarchical A2A hospital workflow system with MCP tool access. "
         "Plan 1.0: SupervisorAgent + TriageAgent + BedManagementAgent + "
         "LabAgent + BillingAgent + InsuranceAgent + SchedulerAgent + "
-        "AlertAgent + DataAgent. 30 MCP tools. 9 planning rules."
+        "AlertAgent + DataAgent. 31 MCP tools. 9 planning rules."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -194,12 +212,62 @@ async def root():
     return FileResponse(str(STATIC_DIR / "index.html"))
 
 
+@app.post("/login", response_model=TokenResponse, summary="Authenticate and get JWT access token")
+async def login(request: LoginRequest):
+    """Authenticate user credentials and issue JWT token."""
+    async with async_session_factory() as session:
+        result = await session.execute(select(User).where(User.username == request.username))
+        user = result.scalar_one_or_none()
+
+    if user is None or not verify_password(request.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is inactive",
+        )
+
+    expires_in_minutes = get_jwt_expire_minutes()
+    token = create_access_token(
+        {
+            "sub": str(user.id),
+            "username": user.username,
+            "role": user.role,
+        },
+        expires_minutes=expires_in_minutes,
+    )
+
+    return TokenResponse(
+        access_token=token,
+        expires_in=expires_in_minutes * 60,
+    )
+
+
+@app.get("/me", response_model=UserPublic, summary="Get currently authenticated user")
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Return the authenticated user profile."""
+    return UserPublic(
+        id=current_user.id,
+        username=current_user.username,
+        email=current_user.email,
+        role=UserRole(current_user.role),
+        is_active=current_user.is_active,
+    )
+
+
 # ─────────────────────────────────────────────
 # Workflow Trigger Endpoints
 # ─────────────────────────────────────────────
 
 @app.post("/admit_patient", summary="Admit a patient — triggers full 7-step workflow")
-async def admit_patient(request: AdmitPatientRequest):
+async def admit_patient(
+    request: AdmitPatientRequest,
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.STAFF)),
+):
     """
     Main endpoint: Admit a patient.
 
@@ -219,7 +287,23 @@ async def admit_patient(request: AdmitPatientRequest):
     logger.info(f"{'#'*60}\n")
 
     try:
-        context = {"patient_id": request.patient_id}
+        async with async_session_factory() as session:
+            patient_result = await session.execute(
+                select(Patient).where(Patient.id == request.patient_id)
+            )
+            patient = patient_result.scalar_one_or_none()
+
+        if patient is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Patient {request.patient_id} not found. Create patient first via POST /patients.",
+            )
+
+        context = {
+            "patient_id": request.patient_id,
+            "_user_id": current_user.id,
+            "_user_role": current_user.role,
+        }
         agent_capabilities = orchestrator.get_agent_capabilities()
 
         plan = await planner.plan(
@@ -229,7 +313,11 @@ async def admit_patient(request: AdmitPatientRequest):
         )
 
         logger.info(f"📋 Plan generated: {len(plan.tasks)} tasks")
-        execution_log = await orchestrator.execute_plan(plan)
+        execution_log = await orchestrator.execute_plan(
+            plan,
+            user_id=current_user.id,
+            user_role=current_user.role,
+        )
 
         return JSONResponse(
             status_code=200,
@@ -254,7 +342,12 @@ async def admit_patient(request: AdmitPatientRequest):
 
 
 @app.post("/trigger_event", summary="Trigger any event dynamically")
-async def trigger_event(request: GenericEventRequest):
+async def trigger_event(
+    request: GenericEventRequest,
+    current_user: User = Depends(
+        require_roles(UserRole.SUPER_ADMIN, UserRole.STAFF, UserRole.DOCTOR)
+    ),
+):
     """
     Generic event endpoint — trigger ANY workflow dynamically.
 
@@ -277,13 +370,23 @@ async def trigger_event(request: GenericEventRequest):
     try:
         agent_capabilities = orchestrator.get_agent_capabilities()
 
+        context = {
+            **request.context,
+            "_user_id": current_user.id,
+            "_user_role": current_user.role,
+        }
+
         plan = await planner.plan(
             event=request.event,
-            context=request.context,
+            context=context,
             agent_capabilities=agent_capabilities,
         )
 
-        execution_log = await orchestrator.execute_plan(plan)
+        execution_log = await orchestrator.execute_plan(
+            plan,
+            user_id=current_user.id,
+            user_role=current_user.role,
+        )
 
         return JSONResponse(
             status_code=200,
@@ -308,7 +411,12 @@ async def trigger_event(request: GenericEventRequest):
 
 
 @app.post("/trigger_emergency", summary="Trigger emergency fast-track workflow")
-async def trigger_emergency(request: EmergencyRequest):
+async def trigger_emergency(
+    request: EmergencyRequest,
+    current_user: User = Depends(
+        require_roles(UserRole.SUPER_ADMIN, UserRole.STAFF, UserRole.DOCTOR)
+    ),
+):
     """
     Emergency endpoint — triggers highest-priority workflow.
 
@@ -325,6 +433,8 @@ async def trigger_emergency(request: EmergencyRequest):
             "patient_id": request.patient_id,
             "chief_complaint": request.chief_complaint,
             "vitals": request.vitals or {},
+            "_user_id": current_user.id,
+            "_user_role": current_user.role,
         }
         agent_capabilities = orchestrator.get_agent_capabilities()
 
@@ -334,7 +444,11 @@ async def trigger_emergency(request: EmergencyRequest):
             agent_capabilities=agent_capabilities,
         )
 
-        execution_log = await orchestrator.execute_plan(plan)
+        execution_log = await orchestrator.execute_plan(
+            plan,
+            user_id=current_user.id,
+            user_role=current_user.role,
+        )
 
         return JSONResponse(
             status_code=200,
@@ -358,7 +472,12 @@ async def trigger_emergency(request: EmergencyRequest):
 
 
 @app.post("/lab_order", summary="Create a lab test order via LabAgent")
-async def create_lab_order(request: LabOrderRequest):
+async def create_lab_order(
+    request: LabOrderRequest,
+    current_user: User = Depends(
+        require_roles(UserRole.SUPER_ADMIN, UserRole.STAFF, UserRole.DOCTOR)
+    ),
+):
     """
     Create a lab order and initiate sample collection.
     Triggers the 'lab_order_request' event.
@@ -369,6 +488,8 @@ async def create_lab_order(request: LabOrderRequest):
             "test_name": request.test_name,
             "ordered_by": request.ordered_by,
             "priority": request.priority,
+            "_user_id": current_user.id,
+            "_user_role": current_user.role,
         }
         agent_capabilities = orchestrator.get_agent_capabilities()
 
@@ -378,7 +499,11 @@ async def create_lab_order(request: LabOrderRequest):
             agent_capabilities=agent_capabilities,
         )
 
-        execution_log = await orchestrator.execute_plan(plan)
+        execution_log = await orchestrator.execute_plan(
+            plan,
+            user_id=current_user.id,
+            user_role=current_user.role,
+        )
 
         return JSONResponse(
             status_code=200,
@@ -413,7 +538,16 @@ async def health_check():
 
 
 @app.get("/agents", summary="List all registered agents")
-async def list_agents():
+async def list_agents(
+    _: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.STAFF,
+            UserRole.DOCTOR,
+            UserRole.AUDITOR,
+        )
+    ),
+):
     """List all registered agents and their capabilities."""
     return {
         "agents": orchestrator.list_agents(),
@@ -434,8 +568,17 @@ async def list_agents():
 
 
 @app.get("/tools", summary="List all registered MCP tools")
-async def list_tools():
-    """List all 30 registered MCP tools."""
+async def list_tools(
+    _: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.STAFF,
+            UserRole.DOCTOR,
+            UserRole.AUDITOR,
+        )
+    ),
+):
+    """List all registered MCP tools."""
     registry = get_registry()
     tools = registry.list_tools()
     return {
@@ -463,22 +606,85 @@ async def list_tools():
                 "create_lab_order", "collect_sample", "track_sample_status",
                 "get_lab_result", "flag_critical_lab_result", "attach_lab_report",
             ],
+            "insurance": ["get_insurance_eligibility"],
         },
     }
 
 
 @app.get("/execution_logs", summary="View execution history")
-async def get_execution_logs():
+async def get_execution_logs(
+    _: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.STAFF,
+            UserRole.DOCTOR,
+            UserRole.AUDITOR,
+        )
+    ),
+):
     """View all past workflow execution logs."""
-    history = orchestrator.get_execution_history()
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(ExecutionRecord).order_by(ExecutionRecord.started_at.desc())
+        )
+        records = result.scalars().all()
+
+    history = [r.log_data for r in records if r.log_data]
+
+    # Fallback to in-memory records (e.g., before persistence exists)
+    if not history:
+        memory_history = orchestrator.get_execution_history()
+        history = [log.model_dump(mode="json") for log in memory_history]
+
     return {
-        "executions": [log.model_dump(mode="json") for log in history],
+        "executions": history,
         "total": len(history),
     }
 
 
+@app.get("/patients", response_model=list[PatientResponse], summary="List all patients")
+async def list_patients(
+    _: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.STAFF,
+            UserRole.DOCTOR,
+            UserRole.AUDITOR,
+        )
+    ),
+):
+    """List all patients from database."""
+    async with async_session_factory() as session:
+        result = await session.execute(select(Patient).order_by(Patient.id.asc()))
+        patients = result.scalars().all()
+    return [PatientResponse(**p.to_dict()) for p in patients]
+
+
+@app.post("/patients", response_model=PatientResponse, summary="Create a new patient")
+async def create_patient(
+    request: CreatePatientRequest,
+    _: User = Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.STAFF)),
+):
+    """Create and persist a new patient record."""
+    async with async_session_factory() as session:
+        patient = Patient(
+            name=request.name,
+            age=request.age,
+            department=request.department.lower().strip(),
+            condition=request.condition,
+            admitted=False,
+        )
+        session.add(patient)
+        await session.commit()
+        await session.refresh(patient)
+
+    return PatientResponse(**patient.to_dict())
+
+
 @app.get("/planning_rules", summary="View all planner rules")
-async def get_planning_rules():
+async def get_planning_rules(
+    _: User = Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.AUDITOR)),
+):
     """View all 9 planning rules in the system."""
     return {
         "rules": planner.list_rules(),
@@ -489,15 +695,34 @@ async def get_planning_rules():
 
 
 @app.get("/bed_status", summary="View bed inventory and occupancy")
-async def get_bed_status():
+async def get_bed_status(
+    current_user: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.STAFF,
+            UserRole.DOCTOR,
+            UserRole.AUDITOR,
+        )
+    ),
+):
     """
     Get live bed occupancy snapshot across all wards.
     Routes through BedManagementAgent via a quick event.
     """
     try:
         registry = get_registry()
-        snapshot = await registry.call("get_occupancy_snapshot", {}, caller_agent="api")
-        inventory = await registry.call("get_bed_inventory", {"ward": ""}, caller_agent="api")
+        snapshot = await registry.call(
+            "get_occupancy_snapshot",
+            {},
+            caller_agent="api",
+            user_role=current_user.role,
+        )
+        inventory = await registry.call(
+            "get_bed_inventory",
+            {"ward": ""},
+            caller_agent="api",
+            user_role=current_user.role,
+        )
         return {
             "occupancy": snapshot.result,
             "inventory": inventory.result,

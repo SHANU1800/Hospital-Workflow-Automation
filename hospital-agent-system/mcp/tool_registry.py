@@ -15,12 +15,30 @@ Key design:
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar, Token
 from datetime import datetime
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from models.schemas import MCPToolCall
 
 logger = logging.getLogger("mcp.registry")
+
+_current_user_id: ContextVar[Optional[int]] = ContextVar("mcp_current_user_id", default=None)
+_current_user_role: ContextVar[Optional[str]] = ContextVar("mcp_current_user_role", default=None)
+
+
+def set_execution_auth_context(user_id: Optional[int], user_role: Optional[str]) -> tuple[Token, Token]:
+    """Set per-execution auth context for nested MCP tool calls."""
+    id_token = _current_user_id.set(user_id)
+    role_token = _current_user_role.set(user_role)
+    return id_token, role_token
+
+
+def reset_execution_auth_context(tokens: tuple[Token, Token]) -> None:
+    """Reset per-execution auth context after plan execution completes."""
+    id_token, role_token = tokens
+    _current_user_id.reset(id_token)
+    _current_user_role.reset(role_token)
 
 
 class ToolDefinition:
@@ -61,6 +79,44 @@ class ToolRegistry:
     def __init__(self):
         self._tools: Dict[str, ToolDefinition] = {}
         self._call_log: List[MCPToolCall] = []
+        self._tool_permissions: Dict[str, set[str]] = {
+            # Core platform
+            "get_patient_data": {"super_admin", "staff", "doctor"},
+            "assign_doctor": {"super_admin", "staff"},
+            "send_notification": {"super_admin", "staff", "doctor"},
+            "get_patient_department": {"super_admin", "staff", "doctor", "auditor"},
+            "check_doctor_availability": {"super_admin", "staff", "doctor", "auditor"},
+            # Triage
+            "calculate_triage_score": {"super_admin", "staff", "doctor"},
+            "classify_emergency_level": {"super_admin", "staff", "doctor"},
+            "prioritize_waitlist": {"super_admin", "staff", "doctor"},
+            "flag_critical_case": {"super_admin", "staff", "doctor"},
+            "record_triage_assessment": {"super_admin", "staff", "doctor"},
+            # Bed management
+            "get_bed_inventory": {"super_admin", "staff", "doctor", "auditor"},
+            "find_best_bed_match": {"super_admin", "staff", "doctor"},
+            "reserve_bed": {"super_admin", "staff"},
+            "assign_bed": {"super_admin", "staff"},
+            "release_bed": {"super_admin", "staff"},
+            "get_occupancy_snapshot": {"super_admin", "staff", "doctor", "auditor"},
+            # Billing and insurance
+            "initiate_billing_case": {"super_admin", "staff"},
+            "map_services_to_charge_codes": {"super_admin", "staff", "doctor"},
+            "calculate_estimated_bill": {"super_admin", "staff"},
+            "generate_itemized_invoice": {"super_admin", "staff"},
+            "create_claim": {"super_admin", "staff"},
+            "validate_claim": {"super_admin", "staff"},
+            "submit_claim": {"super_admin", "staff"},
+            "track_claim_status": {"super_admin", "staff", "doctor", "auditor"},
+            "get_insurance_eligibility": {"super_admin", "staff", "doctor", "auditor"},
+            # Lab
+            "create_lab_order": {"super_admin", "staff", "doctor"},
+            "collect_sample": {"super_admin", "staff"},
+            "track_sample_status": {"super_admin", "staff", "doctor", "auditor"},
+            "get_lab_result": {"super_admin", "staff", "doctor"},
+            "flag_critical_lab_result": {"super_admin", "staff", "doctor"},
+            "attach_lab_report": {"super_admin", "staff", "doctor"},
+        }
 
     def register(
         self,
@@ -94,6 +150,7 @@ class ToolRegistry:
         tool_name: str,
         params: Dict[str, Any],
         caller_agent: str = "",
+        user_role: Optional[str] = None,
     ) -> MCPToolCall:
         """
         Invoke a registered tool by name.
@@ -124,6 +181,19 @@ class ToolRegistry:
             return call_record
 
         tool = self._tools[tool_name]
+        effective_role = user_role or _current_user_role.get()
+
+        if effective_role and effective_role != "super_admin":
+            allowed_roles = self._tool_permissions.get(tool_name)
+            if allowed_roles and effective_role not in allowed_roles:
+                call_record.success = False
+                call_record.error = (
+                    f"Role '{effective_role}' is not allowed to call '{tool_name}'"
+                )
+                logger.error(f"❌ MCP authorization failed: {call_record.error}")
+                self._call_log.append(call_record)
+                return call_record
+
         logger.info(
             f"🔧 MCP Call: {caller_agent} -> {tool_name}({params})"
         )

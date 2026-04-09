@@ -3,19 +3,196 @@
    ═══════════════════════════════════════════════════════ */
 
 const API = '';  // Same origin
+const TOKEN_STORAGE_KEY = 'hospital_auth_token';
 
 // ─── State ────────────────────────────────────────────
 let currentPage = 'dashboard';
 let executionLogs = [];
+let authToken = null;
+let currentUser = null;
+
+const roleAccess = {
+    super_admin: {
+        pages: ['dashboard', 'admit', 'events', 'logs', 'agents', 'tools'],
+        canQuickActions: true,
+    },
+    staff: {
+        pages: ['dashboard', 'admit', 'events', 'logs', 'agents', 'tools'],
+        canQuickActions: true,
+    },
+    doctor: {
+        pages: ['dashboard', 'events', 'logs', 'agents', 'tools'],
+        canQuickActions: false,
+    },
+    auditor: {
+        pages: ['dashboard', 'logs', 'agents', 'tools'],
+        canQuickActions: false,
+    },
+};
 
 // ─── Initialization ───────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
     setupClock();
+    const authenticated = await ensureAuthenticated();
+    if (!authenticated) return;
+
     loadHealthData();
     loadDashboard();
     loadAgentStatus();
 });
+
+async function apiFetch(url, options = {}) {
+    const headers = {
+        ...(options.headers || {}),
+    };
+
+    if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+    }
+
+    const response = await fetch(url, { ...options, headers });
+
+    if (response.status === 401 || response.status === 403) {
+        forceLogout('Your session has expired or your role is not allowed. Please sign in again.');
+    }
+
+    return response;
+}
+
+async function ensureAuthenticated() {
+    authToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+
+    if (!authToken) {
+        showAuthOverlay(true);
+        return false;
+    }
+
+    try {
+        await loadCurrentUser();
+        showAuthOverlay(false);
+        return true;
+    } catch (_) {
+        forceLogout('Please sign in to continue.');
+        return false;
+    }
+}
+
+async function loadCurrentUser() {
+    const res = await apiFetch(`${API}/me`);
+    if (!res.ok) {
+        throw new Error('Failed to load current user');
+    }
+
+    currentUser = await res.json();
+    applyRoleUI();
+    renderAuthUser();
+}
+
+function renderAuthUser() {
+    const controls = document.getElementById('auth-controls');
+    const label = document.getElementById('auth-user-label');
+
+    if (!currentUser) {
+        controls.style.display = 'none';
+        label.textContent = '';
+        return;
+    }
+
+    controls.style.display = 'inline-flex';
+    label.textContent = `${currentUser.username} (${currentUser.role})`;
+}
+
+function showAuthOverlay(show) {
+    document.getElementById('auth-overlay').classList.toggle('active', show);
+}
+
+function forceLogout(message = '') {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    authToken = null;
+    currentUser = null;
+    renderAuthUser();
+    showAuthOverlay(true);
+    if (message) {
+        document.getElementById('auth-error').textContent = message;
+    }
+}
+
+async function login(event) {
+    event.preventDefault();
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    const loginBtn = document.getElementById('btn-login');
+    const errorEl = document.getElementById('auth-error');
+
+    errorEl.textContent = '';
+    loginBtn.disabled = true;
+
+    try {
+        const res = await fetch(`${API}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || 'Invalid credentials');
+        }
+
+        authToken = data.access_token;
+        localStorage.setItem(TOKEN_STORAGE_KEY, authToken);
+
+        await loadCurrentUser();
+        showAuthOverlay(false);
+        loadHealthData();
+        loadDashboard();
+        loadAgentStatus();
+    } catch (e) {
+        errorEl.textContent = e.message || 'Sign-in failed';
+    } finally {
+        loginBtn.disabled = false;
+    }
+}
+
+function logout() {
+    forceLogout('You have been signed out.');
+}
+
+function fillDemoCredentials(username, password) {
+    document.getElementById('login-username').value = username;
+    document.getElementById('login-password').value = password;
+    document.getElementById('auth-error').textContent = '';
+}
+
+function applyRoleUI() {
+    const role = currentUser?.role;
+    const config = roleAccess[role] || roleAccess.auditor;
+    const allowedPages = new Set(config.pages);
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+        const page = item.dataset.page;
+        const allowed = allowedPages.has(page);
+        item.classList.toggle('role-hidden', !allowed);
+    });
+
+    document.querySelectorAll('.page').forEach(section => {
+        const page = section.id.replace('page-', '');
+        const allowed = allowedPages.has(page);
+        section.classList.toggle('role-hidden', !allowed);
+    });
+
+    const quickActionsCard = document.getElementById('quick-actions-card');
+    if (quickActionsCard) {
+        quickActionsCard.classList.toggle('role-hidden', !config.canQuickActions);
+    }
+
+    if (!allowedPages.has(currentPage)) {
+        const firstAllowed = config.pages[0] || 'dashboard';
+        navigateTo(firstAllowed);
+    }
+}
 
 // ─── Navigation ───────────────────────────────────────
 function setupNavigation() {
@@ -37,6 +214,14 @@ function setupNavigation() {
 }
 
 function navigateTo(page) {
+    if (currentUser) {
+        const allowed = roleAccess[currentUser.role]?.pages || [];
+        if (!allowed.includes(page)) {
+            showToast('You do not have permission to access this page', 'error');
+            return;
+        }
+    }
+
     // Update nav
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelector(`[data-page="${page}"]`).classList.add('active');
@@ -82,7 +267,8 @@ function setupClock() {
 // ─── Health Data ──────────────────────────────────────
 async function loadHealthData() {
     try {
-        const res = await fetch(`${API}/health`);
+        const res = await apiFetch(`${API}/health`);
+        if (!res.ok) throw new Error('Health request failed');
         const data = await res.json();
         document.getElementById('badge-agents').textContent = data.agents;
         document.getElementById('badge-tools').textContent = data.tools;
@@ -102,7 +288,8 @@ async function loadHealthData() {
 // ─── Dashboard ────────────────────────────────────────
 async function loadDashboard() {
     try {
-        const res = await fetch(`${API}/execution_logs`);
+        const res = await apiFetch(`${API}/execution_logs`);
+        if (!res.ok) throw new Error('Dashboard request failed');
         const data = await res.json();
         executionLogs = data.executions || [];
         updateDashboardStats();
@@ -168,7 +355,8 @@ function updateActivityList() {
 // ─── Agent Status (dashboard widget) ──────────────────
 async function loadAgentStatus() {
     try {
-        const res = await fetch(`${API}/agents`);
+        const res = await apiFetch(`${API}/agents`);
+        if (!res.ok) throw new Error('Agents request failed');
         const data = await res.json();
         const container = document.getElementById('agent-status-list');
 
@@ -209,7 +397,7 @@ async function admitPatient() {
     showLoading(true);
 
     try {
-        const res = await fetch(`${API}/admit_patient`, {
+        const res = await apiFetch(`${API}/admit_patient`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ patient_id: patientId }),
@@ -251,7 +439,7 @@ async function triggerEvent() {
     showLoading(true);
 
     try {
-        const res = await fetch(`${API}/trigger_event`, {
+        const res = await apiFetch(`${API}/trigger_event`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -284,8 +472,7 @@ function renderWorkflowResult(prefix, data) {
 
     // Status badge
     statusEl.className = `result-status ${data.status}`;
-    statusEl.textContent = data.status === 'completed' ? '✓ Completed' :
-                           data.status === 'partial_failure' ? '⚠ Partial' : '✗ Failed';
+    statusEl.innerHTML = getStatusBadgeContent(data.status);
 
     // Timeline steps
     const execution = data.execution || {};
@@ -342,7 +529,7 @@ function renderWorkflowResult(prefix, data) {
                         ${step.error ? `<div class="timeline-detail-row"><span class="timeline-detail-label" style="color:var(--accent-danger)">Error</span><span>${escapeHtml(step.error)}</span></div>` : ''}
                     </div>
                     ${a2aHtml}
-                    ${duration ? `<div class="timeline-duration">⏱ ${duration}</div>` : ''}
+                    ${duration ? `<div class="timeline-duration">${getDurationContent(duration)}</div>` : ''}
                 </div>
             </div>`;
     }).join('');
@@ -354,7 +541,8 @@ function renderWorkflowResult(prefix, data) {
 // ─── Execution Logs Page ──────────────────────────────
 async function loadLogs() {
     try {
-        const res = await fetch(`${API}/execution_logs`);
+        const res = await apiFetch(`${API}/execution_logs`);
+        if (!res.ok) throw new Error('Logs request failed');
         const data = await res.json();
         const container = document.getElementById('logs-container');
         const logs = data.executions || [];
@@ -409,7 +597,7 @@ async function loadLogs() {
                                 <span class="timeline-agent-badge ${step.agent}">${step.agent}</span>
                             </div>
                             <div class="timeline-details">${detailsHtml}</div>
-                            ${step.duration_ms ? `<div class="timeline-duration">⏱ ${step.duration_ms.toFixed(1)}ms</div>` : ''}
+                            ${step.duration_ms ? `<div class="timeline-duration">${getDurationContent(`${step.duration_ms.toFixed(1)}ms`)}</div>` : ''}
                         </div>
                     </div>`;
             }).join('');
@@ -448,7 +636,8 @@ function toggleLogCard(index) {
 // ─── Agents Page ──────────────────────────────────────
 async function loadAgents() {
     try {
-        const res = await fetch(`${API}/agents`);
+        const res = await apiFetch(`${API}/agents`);
+        if (!res.ok) throw new Error('Agents request failed');
         const data = await res.json();
         const grid = document.getElementById('agents-grid');
 
@@ -495,7 +684,8 @@ async function loadAgents() {
 // ─── Tools Page ───────────────────────────────────────
 async function loadTools() {
     try {
-        const res = await fetch(`${API}/tools`);
+        const res = await apiFetch(`${API}/tools`);
+        if (!res.ok) throw new Error('Tools request failed');
         const data = await res.json();
         const grid = document.getElementById('tools-grid');
 
@@ -578,6 +768,30 @@ function showToast(message, type = 'info') {
 // ─── Loading ──────────────────────────────────────────
 function showLoading(show) {
     document.getElementById('loading-overlay').classList.toggle('active', show);
+}
+
+function getStatusBadgeContent(status) {
+    const items = {
+        completed: {
+            label: 'Completed',
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+        },
+        partial_failure: {
+            label: 'Partial',
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.4L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.4a2 2 0 0 0-3.4 0z"/></svg>',
+        },
+        failed: {
+            label: 'Failed',
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        },
+    };
+
+    const selected = items[status] || items.failed;
+    return `<span class="result-status-content">${selected.icon}<span>${selected.label}</span></span>`;
+}
+
+function getDurationContent(value) {
+    return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg><span>${value}</span>`;
 }
 
 // ─── Helpers ──────────────────────────────────────────

@@ -23,6 +23,35 @@ from pydantic import BaseModel, Field
 # API Models
 # ─────────────────────────────────────────────
 
+class UserRole(str, Enum):
+    """Supported RBAC roles."""
+    SUPER_ADMIN = "super_admin"
+    STAFF = "staff"
+    DOCTOR = "doctor"
+    AUDITOR = "auditor"
+
+
+class LoginRequest(BaseModel):
+    """Login payload for JWT token issuance."""
+    username: str = Field(..., min_length=3, max_length=100)
+    password: str = Field(..., min_length=6, max_length=256)
+
+
+class TokenResponse(BaseModel):
+    """Bearer token response model."""
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = Field(..., description="Token expiry in seconds")
+
+
+class UserPublic(BaseModel):
+    """Safe user model for API responses."""
+    id: int
+    username: str
+    email: str
+    role: UserRole
+    is_active: bool
+
 class AdmitPatientRequest(BaseModel):
     """Input payload for the /admit_patient endpoint."""
     patient_id: int = Field(..., description="Unique patient identifier")
@@ -35,6 +64,28 @@ class GenericEventRequest(BaseModel):
     """
     event: str = Field(..., description="Event type, e.g. 'patient_admitted', 'lab_results_ready'")
     context: Dict[str, Any] = Field(default_factory=dict, description="Event context/payload")
+
+
+class CreatePatientRequest(BaseModel):
+    """Create-patient payload for onboarding new patients into DB."""
+    name: str = Field(..., min_length=2, max_length=200)
+    age: int = Field(..., ge=0, le=130)
+    department: str = Field(..., min_length=2, max_length=100)
+    condition: Optional[str] = Field(default=None, max_length=300)
+
+
+class PatientResponse(BaseModel):
+    """Public patient response schema."""
+    id: int
+    name: str
+    age: int
+    department: str
+    condition: Optional[str] = None
+    admitted: bool
+    admitted_at: Optional[str] = None
+    triage_score: Optional[float] = None
+    urgency_level: Optional[str] = None
+    bed_id: Optional[int] = None
 
 
 # ─────────────────────────────────────────────

@@ -78,6 +78,10 @@
                     <div class="badge badge-tools"><span class="badge-count" id="badge-tools">0</span> Tools</div>
                     <div class="badge badge-rules"><span class="badge-count" id="badge-rules">0</span> Rules</div>
                 </div>
+                <div class="auth-controls" id="auth-controls">
+                    <span class="auth-user-label" id="auth-user-label"></span>
+                    <button class="btn btn-sm btn-ghost" id="btn-logout" onclick="logout()">Logout</button>
+                </div>
                 <div class="header-time" id="header-time"></div>
             </div>
         </header>
@@ -145,7 +149,7 @@
                 </div>
 
                 <!-- Quick Actions -->
-                <div class="card">
+                <div class="card" id="quick-actions-card">
                     <div class="card-header">
                         <h2>Quick Actions</h2>
                     </div>
@@ -290,27 +294,39 @@
                             <h4>Preset Events</h4>
                             <div class="preset-grid">
                                 <button class="preset-btn preset-admit" onclick="setEvent('patient_admitted', 101)">
-                                    <span class="preset-emoji">🏥</span>
+                                    <span class="preset-icon" aria-hidden="true">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M9 9h6"/><path d="M9 13h6"/><path d="M12 9v4"/></svg>
+                                    </span>
                                     <span class="preset-name">Patient Admitted</span>
                                 </button>
                                 <button class="preset-btn preset-discharge" onclick="setEvent('patient_discharged', 101)">
-                                    <span class="preset-emoji">🚪</span>
+                                    <span class="preset-icon" aria-hidden="true">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9"/><path d="M14 12h7"/><path d="M18 8l4 4-4 4"/></svg>
+                                    </span>
                                     <span class="preset-name">Patient Discharged</span>
                                 </button>
                                 <button class="preset-btn preset-emergency" onclick="setEvent('emergency_code_blue', 103)">
-                                    <span class="preset-emoji">🚨</span>
+                                    <span class="preset-icon" aria-hidden="true">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 14H4L12 3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    </span>
                                     <span class="preset-name">Emergency Code Blue</span>
                                 </button>
                                 <button class="preset-btn preset-lab" onclick="setEvent('lab_results_ready', 102)">
-                                    <span class="preset-emoji">🧪</span>
+                                    <span class="preset-icon" aria-hidden="true">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v6l-5 8a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 16l-5-8V2"/><line x1="8" y1="2" x2="16" y2="2"/><path d="M8 13h8"/></svg>
+                                    </span>
                                     <span class="preset-name">Lab Results Ready</span>
                                 </button>
                                 <button class="preset-btn preset-custom" onclick="setEvent('emergency_cardiac', 105)">
-                                    <span class="preset-emoji">❤️</span>
+                                    <span class="preset-icon" aria-hidden="true">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.4-9-8.6C1.1 8.7 3.4 5 7 5c2 0 3.3 1 5 3 1.7-2 3-3 5-3 3.6 0 5.9 3.7 4 7.4C19 16.6 12 21 12 21z"/></svg>
+                                    </span>
                                     <span class="preset-name">Emergency Cardiac</span>
                                 </button>
                                 <button class="preset-btn preset-unknown" onclick="setEvent('unknown_event', 101)">
-                                    <span class="preset-emoji">❓</span>
+                                    <span class="preset-icon" aria-hidden="true">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 4.7 2.5c-.9.6-1.3 1.1-1.3 2"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    </span>
                                     <span class="preset-name">Unknown Event</span>
                                 </button>
                             </div>
@@ -386,6 +402,40 @@
 
     <!-- Toast notifications -->
     <div class="toast-container" id="toast-container"></div>
+
+    <!-- Authentication overlay -->
+    <div class="auth-overlay" id="auth-overlay">
+        <div class="auth-card">
+            <div class="auth-card-header">
+                <div class="auth-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"/><circle cx="12" cy="10" r="2"/><path d="M8.5 16a3.5 3.5 0 0 1 7 0"/></svg>
+                </div>
+                <h2>Sign In</h2>
+                <p>Authenticate to access workflow actions and logs.</p>
+            </div>
+            <form class="auth-form" id="login-form" onsubmit="login(event)">
+                <div class="input-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" autocomplete="username" required>
+                </div>
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" autocomplete="current-password" required>
+                </div>
+                <button class="btn btn-primary btn-lg" type="submit" id="btn-login">Sign In</button>
+                <div class="demo-accounts">
+                    <span class="demo-label">Demo accounts</span>
+                    <div class="demo-grid">
+                        <button type="button" class="demo-btn" onclick="fillDemoCredentials('super_admin', 'SuperAdmin@123')">Super Admin</button>
+                        <button type="button" class="demo-btn" onclick="fillDemoCredentials('staff_user', 'StaffUser@123')">Staff</button>
+                        <button type="button" class="demo-btn" onclick="fillDemoCredentials('doctor_user', 'DoctorUser@123')">Doctor</button>
+                        <button type="button" class="demo-btn" onclick="fillDemoCredentials('auditor_user', 'AuditorUser@123')">Auditor</button>
+                    </div>
+                </div>
+                <p class="auth-error" id="auth-error"></p>
+            </form>
+        </div>
+    </div>
 
     <!-- Loading overlay -->
     <div class="loading-overlay" id="loading-overlay">

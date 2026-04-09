@@ -25,7 +25,9 @@ from models.schemas import (
     StepLog,
     WorkflowPlan,
 )
+from models.database import ExecutionRecord, async_session_factory
 from agents.base_agent import BaseAgent
+from mcp.tool_registry import reset_execution_auth_context, set_execution_auth_context
 
 logger = logging.getLogger("orchestrator")
 
@@ -135,7 +137,12 @@ class Orchestrator:
     # Plan Execution
     # ─────────────────────────────────────────
 
-    async def execute_plan(self, plan: WorkflowPlan) -> ExecutionLog:
+    async def execute_plan(
+        self,
+        plan: WorkflowPlan,
+        user_id: Optional[int] = None,
+        user_role: Optional[str] = None,
+    ) -> ExecutionLog:
         """
         Execute a complete workflow plan step by step.
         
@@ -164,95 +171,101 @@ class Orchestrator:
             **plan.context,
             "_event": plan.event,
             "_plan_id": plan.plan_id,
+            "_user_id": user_id,
+            "_user_role": user_role,
         }
 
         all_succeeded = True
+        auth_tokens = set_execution_auth_context(user_id=user_id, user_role=user_role)
 
-        for step_num, task in enumerate(plan.tasks, 1):
-            step_log = StepLog(
-                step_number=step_num,
-                task_id=task.task_id,
-                task=task.task,
-                agent=task.agent,
-                status="running",
-                started_at=datetime.utcnow(),
-            )
-
-            logger.info(
-                f"\n{'='*60}\n"
-                f"📌 Step {step_num}/{len(plan.tasks)}: {task.task}\n"
-                f"   Agent: {task.agent}\n"
-                f"   Params: {task.params}\n"
-                f"{'='*60}"
-            )
-
-            agent = self._agents.get(task.agent)
-            if agent is None:
-                # Try to find by capability
-                agent_name = self._capability_index.get(task.task)
-                if agent_name:
-                    agent = self._agents.get(agent_name)
-
-            if agent is None:
-                error_msg = (
-                    f"No agent found for task '{task.task}' "
-                    f"(specified: {task.agent})"
+        try:
+            for step_num, task in enumerate(plan.tasks, 1):
+                step_log = StepLog(
+                    step_number=step_num,
+                    task_id=task.task_id,
+                    task=task.task,
+                    agent=task.agent,
+                    status="running",
+                    started_at=datetime.utcnow(),
                 )
-                logger.error(f"❌ {error_msg}")
-                step_log.status = "failed"
-                step_log.error = error_msg
-                step_log.completed_at = datetime.utcnow()
-                execution_log.steps.append(step_log)
-                all_succeeded = False
-                continue
-
-            try:
-                # Execute the task
-                result = await agent.handle_task(task, context)
-                
-                step_log.status = "completed"
-                step_log.result = result
-                step_log.completed_at = datetime.utcnow()
-                step_log.duration_ms = (
-                    step_log.completed_at - step_log.started_at
-                ).total_seconds() * 1000
-
-                # Merge result into shared context
-                # This is how downstream agents get data from upstream agents
-                if isinstance(result, dict):
-                    for key, value in result.items():
-                        if key not in ("tool_call", "a2a_messages", "status"):
-                            context[key] = value
-
-                    # Collect A2A messages and tool calls for logging
-                    if "a2a_messages" in result:
-                        for msg_data in result["a2a_messages"]:
-                            if isinstance(msg_data, dict):
-                                step_log.a2a_messages.append(
-                                    A2AMessage(**msg_data)
-                                )
-
-                    if "tool_call" in result:
-                        from models.schemas import MCPToolCall
-                        tc = result["tool_call"]
-                        if isinstance(tc, dict):
-                            step_log.tool_calls.append(MCPToolCall(**tc))
 
                 logger.info(
-                    f"✅ Step {step_num} completed in {step_log.duration_ms:.1f}ms"
+                    f"\n{'='*60}\n"
+                    f"📌 Step {step_num}/{len(plan.tasks)}: {task.task}\n"
+                    f"   Agent: {task.agent}\n"
+                    f"   Params: {task.params}\n"
+                    f"{'='*60}"
                 )
 
-            except Exception as e:
-                step_log.status = "failed"
-                step_log.error = str(e)
-                step_log.completed_at = datetime.utcnow()
-                step_log.duration_ms = (
-                    step_log.completed_at - step_log.started_at
-                ).total_seconds() * 1000
-                logger.error(f"❌ Step {step_num} failed: {e}")
-                all_succeeded = False
+                agent = self._agents.get(task.agent)
+                if agent is None:
+                    # Try to find by capability
+                    agent_name = self._capability_index.get(task.task)
+                    if agent_name:
+                        agent = self._agents.get(agent_name)
 
-            execution_log.steps.append(step_log)
+                if agent is None:
+                    error_msg = (
+                        f"No agent found for task '{task.task}' "
+                        f"(specified: {task.agent})"
+                    )
+                    logger.error(f"❌ {error_msg}")
+                    step_log.status = "failed"
+                    step_log.error = error_msg
+                    step_log.completed_at = datetime.utcnow()
+                    execution_log.steps.append(step_log)
+                    all_succeeded = False
+                    continue
+
+                try:
+                    # Execute the task
+                    result = await agent.handle_task(task, context)
+                
+                    step_log.status = "completed"
+                    step_log.result = result
+                    step_log.completed_at = datetime.utcnow()
+                    step_log.duration_ms = (
+                        step_log.completed_at - step_log.started_at
+                    ).total_seconds() * 1000
+
+                    # Merge result into shared context
+                    # This is how downstream agents get data from upstream agents
+                    if isinstance(result, dict):
+                        for key, value in result.items():
+                            if key not in ("tool_call", "a2a_messages", "status"):
+                                context[key] = value
+
+                        # Collect A2A messages and tool calls for logging
+                        if "a2a_messages" in result:
+                            for msg_data in result["a2a_messages"]:
+                                if isinstance(msg_data, dict):
+                                    step_log.a2a_messages.append(
+                                        A2AMessage(**msg_data)
+                                    )
+
+                        if "tool_call" in result:
+                            from models.schemas import MCPToolCall
+                            tc = result["tool_call"]
+                            if isinstance(tc, dict):
+                                step_log.tool_calls.append(MCPToolCall(**tc))
+
+                    logger.info(
+                        f"✅ Step {step_num} completed in {step_log.duration_ms:.1f}ms"
+                    )
+
+                except Exception as e:
+                    step_log.status = "failed"
+                    step_log.error = str(e)
+                    step_log.completed_at = datetime.utcnow()
+                    step_log.duration_ms = (
+                        step_log.completed_at - step_log.started_at
+                    ).total_seconds() * 1000
+                    logger.error(f"❌ Step {step_num} failed: {e}")
+                    all_succeeded = False
+
+                execution_log.steps.append(step_log)
+        finally:
+            reset_execution_auth_context(auth_tokens)
 
         # Finalize execution log
         execution_log.completed_at = datetime.utcnow()
@@ -270,8 +283,28 @@ class Orchestrator:
         )
 
         self._execution_history.append(execution_log)
+        await self._persist_execution_log(execution_log)
         return execution_log
 
     def get_execution_history(self) -> List[ExecutionLog]:
         """Return all past execution logs."""
         return self._execution_history.copy()
+
+    async def _persist_execution_log(self, execution_log: ExecutionLog) -> None:
+        """Persist execution log to database for durability across restarts."""
+        try:
+            async with async_session_factory() as session:
+                record = ExecutionRecord(
+                    execution_id=execution_log.execution_id,
+                    plan_id=execution_log.plan_id,
+                    event=execution_log.event,
+                    status=execution_log.status,
+                    log_data=execution_log.model_dump(mode="json"),
+                    started_at=execution_log.started_at,
+                    completed_at=execution_log.completed_at,
+                    total_duration_ms=execution_log.total_duration_ms,
+                )
+                session.add(record)
+                await session.commit()
+        except Exception as exc:
+            logger.error(f"Failed to persist execution log {execution_log.execution_id}: {exc}")

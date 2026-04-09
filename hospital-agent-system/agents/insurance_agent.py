@@ -75,8 +75,8 @@ class InsuranceAgent(BaseAgent):
         member_id = task.params.get("member_id", context.get("member_id", ""))
         billing_case_id = context.get("billing_case_id")
 
-        # Rule-based eligibility check
-        eligibility_result = self._check_eligibility(
+        # DB-backed eligibility check via MCP tool
+        eligibility_result = await self._check_eligibility_via_tool(
             insurance_provider, plan_type, member_id
         )
 
@@ -166,31 +166,33 @@ class InsuranceAgent(BaseAgent):
         }
 
     # ─────────────────────────────────────────
-    # Eligibility Rules (mock)
+    # Eligibility Lookup
     # ─────────────────────────────────────────
 
-    def _check_eligibility(
+    async def _check_eligibility_via_tool(
         self, provider: str, plan_type: str, member_id: str
     ) -> dict:
-        """
-        Rule-based eligibility check.
-        In production, this would call an external payer API.
-        """
-        # Basic validation
-        issues = []
-        if not member_id or member_id in ("unknown", ""):
-            issues.append("member_id_missing")
-        if provider in ("unknown", "none", ""):
-            issues.append("provider_unknown")
-
-        eligible = len(issues) == 0
-        coverage_pct = 80.0 if "premium" in plan_type.lower() else 60.0
-
-        return {
-            "eligible": eligible,
-            "coverage_percentage": coverage_pct if eligible else 0,
-            "covered_services": ["inpatient", "emergency", "lab", "radiology"],
-            "issues": issues,
+        """Run insurance eligibility using DB-backed MCP lookup rules."""
+        result = await self.call_tool(
+            "get_insurance_eligibility",
+            {
+                "insurance_provider": provider,
+                "plan_type": plan_type,
+                "member_id": member_id,
+            },
+        )
+        if not result.success:
+            return {
+                "eligible": False,
+                "coverage_percentage": 0,
+                "covered_services": [],
+                "issues": ["eligibility_lookup_failed"],
+            }
+        return result.result or {
+            "eligible": False,
+            "coverage_percentage": 0,
+            "covered_services": [],
+            "issues": ["eligibility_lookup_empty"],
         }
 
     # ─────────────────────────────────────────
@@ -209,7 +211,9 @@ class InsuranceAgent(BaseAgent):
             plan_type = message.payload.get("plan_type", "general")
             member_id = message.payload.get("member_id", "")
 
-            eligibility = self._check_eligibility(provider, plan_type, member_id)
+            eligibility = await self._check_eligibility_via_tool(
+                provider, plan_type, member_id
+            )
 
             if eligibility["eligible"]:
                 claim_result = await self.call_tool(

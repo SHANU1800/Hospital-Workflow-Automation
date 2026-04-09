@@ -1,113 +1,119 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal EnableExtensions EnableDelayedExpansion
+
+set "ROOT_DIR=%~dp0"
+set "PROJECT_DIR=%ROOT_DIR%hospital-agent-system"
+set "APP_URL=http://localhost:8000"
+set "HEALTH_URL=%APP_URL%/health"
+set "DOCS_URL=%APP_URL%/docs"
+set "MAX_TRIES=45"
+set "WAIT_SECONDS=2"
 
 echo.
-echo ╔═══════════════════════════════════════════════════╗
-echo ║   Hospital Workflow Automation  —  Plan 1.0       ║
-echo ╚═══════════════════════════════════════════════════╝
+echo ==================================================
+echo   Hospital Workflow Automation - Launcher
+echo ==================================================
 echo.
 
-set "PROJECT_DIR=%~dp0hospital-agent-system"
-
-REM ── Check project directory ────────────────────────────
 if not exist "%PROJECT_DIR%\docker-compose.yml" (
-    echo [ERROR] docker-compose.yml not found in:
-    echo         %PROJECT_DIR%
+    echo [ERROR] Could not find docker-compose.yml at:
+    echo         "%PROJECT_DIR%"
     pause
     exit /b 1
 )
 
 cd /d "%PROJECT_DIR%"
 
-REM ── Detect Docker Compose command ─────────────────────
+docker version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Docker CLI is not available.
+    echo         Install Docker Desktop and make sure "docker" is in PATH.
+    pause
+    exit /b 1
+)
+
 docker compose version >nul 2>&1
-if %errorlevel%==0 (
+if not errorlevel 1 (
     set "COMPOSE_CMD=docker compose"
 ) else (
     docker-compose version >nul 2>&1
-    if %errorlevel%==0 (
+    if not errorlevel 1 (
         set "COMPOSE_CMD=docker-compose"
     ) else (
-        echo [ERROR] Docker Compose not found. Install Docker Desktop.
+        echo [ERROR] Docker Compose is not available.
+        echo         Install/enable Docker Compose and try again.
         pause
         exit /b 1
     )
 )
 
-REM ── Check Docker is running ───────────────────────────
 docker info >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Docker is not running. Please start Docker Desktop first.
+if errorlevel 1 (
+    echo [ERROR] Docker engine is not running.
+    echo         Start Docker Desktop and retry.
     pause
     exit /b 1
 )
 
-REM ── Stop any leftover containers cleanly ─────────────
-echo [INFO] Stopping any existing containers...
-%COMPOSE_CMD% down --remove-orphans 2>nul
-
-REM ── Build and start ───────────────────────────────────
-echo [INFO] Building and starting services...
-echo [INFO] This may take 1-2 minutes on first run (downloading images).
+echo [INFO] Using compose command: !COMPOSE_CMD!
+echo [INFO] Project directory: "%PROJECT_DIR%"
 echo.
 
-REM Start in detached mode so we can tail logs properly
-%COMPOSE_CMD% up --build -d
+echo [INFO] Cleaning up previous containers (if any)...
+!COMPOSE_CMD! down --remove-orphans >nul 2>&1
 
-if %errorlevel% neq 0 (
+echo [INFO] Building and starting services in detached mode...
+!COMPOSE_CMD! up --build -d
+if errorlevel 1 (
     echo.
-    echo [ERROR] docker compose up failed. Showing logs:
-    %COMPOSE_CMD% logs
+    echo [ERROR] Failed to start services. Recent logs:
+    !COMPOSE_CMD! logs --tail=100
     pause
     exit /b 1
 )
 
-REM ── Wait for the app to be healthy ───────────────────
-echo [INFO] Waiting for application to start...
+echo.
+echo [INFO] Waiting for health endpoint: %HEALTH_URL%
 set /a TRIES=0
 
-:WAIT_LOOP
+:HEALTH_WAIT
 set /a TRIES+=1
-if %TRIES% gtr 30 (
-    echo.
-    echo [WARN] Application taking longer than expected. Showing logs:
-    %COMPOSE_CMD% logs --tail=50
-    echo.
-    echo [INFO] App may still be starting. Check http://localhost:8000
-    goto :OPEN
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri '%HEALTH_URL%' -TimeoutSec 3 -UseBasicParsing; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+if not errorlevel 1 (
+    echo [OK] Application is healthy.
+    goto :STARTED
 )
 
-REM Check if app container is healthy/running
-%COMPOSE_CMD% ps --format json 2>nul | findstr /i "hospital_app" >nul 2>&1
-
-REM Simple HTTP check using PowerShell
-powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost:8000/health' -TimeoutSec 2 -UseBasicParsing; if ($r.StatusCode -eq 200) { exit 0 } } catch { exit 1 }" >nul 2>&1
-if %errorlevel%==0 (
-    echo [OK] Application is healthy!
-    goto :OPEN
+if !TRIES! geq %MAX_TRIES% (
+    echo.
+    echo [WARN] Health check timed out after !TRIES! attempts.
+    echo [WARN] Showing recent container logs:
+    !COMPOSE_CMD! logs --tail=120
+    echo.
+    echo [INFO] The app might still be starting. Continuing anyway.
+    goto :STARTED
 )
 
-timeout /t 2 /nobreak >nul
-echo [INFO] Still waiting... (%TRIES%/30)
-goto :WAIT_LOOP
+echo [INFO] Waiting... attempt !TRIES!/%MAX_TRIES%
+timeout /t %WAIT_SECONDS% /nobreak >nul
+goto :HEALTH_WAIT
 
-:OPEN
+:STARTED
 echo.
-echo ╔═══════════════════════════════════════════════════╗
-echo ║  App running at:  http://localhost:8000           ║
-echo ║  API docs at:     http://localhost:8000/docs      ║
-echo ║  DB port:         localhost:5433                  ║
-echo ╚═══════════════════════════════════════════════════╝
+echo ==================================================
+echo   App URL : %APP_URL%
+echo   Docs    : %DOCS_URL%
+echo   DB Port : localhost:5433
+echo ==================================================
 echo.
 
-REM Open browser
-start "" "http://localhost:8000"
-timeout /t 2 /nobreak >nul
-start "" "http://localhost:8000/docs"
+start "" "%APP_URL%"
+start "" "%DOCS_URL%"
 
-REM Tail live logs so user can see activity
-echo [INFO] Showing live logs (Ctrl+C to stop log view - containers keep running):
+echo [INFO] Streaming logs. Press Ctrl+C to stop logs.
+echo [INFO] Containers will keep running in the background.
 echo.
-%COMPOSE_CMD% logs --follow --tail=30
+!COMPOSE_CMD! logs --follow --tail=50
 
 endlocal
