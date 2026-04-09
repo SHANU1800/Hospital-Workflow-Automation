@@ -4,9 +4,16 @@ Planner Layer — Dynamic Workflow Plan Generation.
 This is the brain of the system. It takes an event and generates
 a structured execution plan WITHOUT hardcoded if/else chains.
 
-Two implementations:
-1. RuleBasedPlanner: Uses a data-driven rule table with pattern matching
-2. LLMPlanner: Stub showing how to plug in an LLM for plan generation
+Plan 1.0 Rule Set:
+  - patient_admitted         → Full admission pipeline (triage → bed → doctor → billing → insurance → alert)
+  - patient_discharged       → Discharge pipeline (data → billing finalize → supervisor discharge → alert)
+  - lab_results_ready        → Lab result pipeline (data → check lab → notify)
+  - emergency_*              → Emergency fast-track (supervisor emergency → doctor → alert)
+  - critical_lab_result      → Critical lab escalation (lab → staff notify)
+  - bed_request              → Standalone bed management
+  - triage_request           → Standalone triage assessment
+  - billing_inquiry          → Billing status check
+  - *                        → Default fallback to AlertAgent
 
 KEY DESIGN PRINCIPLE:
 The planner does NOT do: if event == "X": return [fixed steps]
@@ -43,12 +50,12 @@ class BasePlanner(ABC):
     ) -> WorkflowPlan:
         """
         Generate a workflow plan for the given event.
-        
+
         Args:
             event: Event type (e.g., 'patient_admitted')
             context: Event context/payload
             agent_capabilities: Available agents and their capabilities
-            
+
         Returns:
             WorkflowPlan with ordered list of tasks
         """
@@ -56,22 +63,65 @@ class BasePlanner(ABC):
 
 
 # ─────────────────────────────────────────────
-# Rule-Based Planner (Data-Driven, NOT Hardcoded)
+# Plan 1.0 Rule Table (Data-Driven, NOT Hardcoded)
 # ─────────────────────────────────────────────
 
-# ── Rule Table ──────────────────────────────
 # Rules are DATA, not code. Each rule defines:
 # - event_pattern: glob/regex pattern to match events
 # - description: human-readable description
+# - priority: rule precedence (lower = higher priority)
 # - task_templates: list of task templates to generate
 #
 # To add a new workflow, ADD A RULE — don't write new code.
-# ────────────────────────────────────────────
 
 PLANNING_RULES: List[Dict[str, Any]] = [
+
+    # ── EMERGENCY (highest priority) ───────────────────────────────────────
+    {
+        "event_pattern": "emergency_*",
+        "description": "Emergency fast-track: supervisor coordinates triage + ICU bed + doctor + alert",
+        "priority": 0,
+        "task_templates": [
+            {
+                "task": "fetch_patient_data",
+                "agent": "DataAgent",
+                "params_map": {"patient_id": "patient_id"},
+                "priority": 1,
+            },
+            {
+                "task": "supervise_emergency",
+                "agent": "SupervisorAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "chief_complaint": "chief_complaint",
+                },
+                "depends_on_index": 0,
+                "priority": 2,
+            },
+            {
+                "task": "assign_doctor",
+                "agent": "SchedulerAgent",
+                "params_map": {"patient_id": "patient_id"},
+                "depends_on_index": 0,
+                "priority": 3,
+            },
+            {
+                "task": "send_alert",
+                "agent": "AlertAgent",
+                "params_map": {
+                    "recipient": "emergency_team",
+                    "channel": "system",
+                    "message": "EMERGENCY ACTIVATION: Immediate response required",
+                },
+                "priority": 1,
+            },
+        ],
+    },
+
+    # ── PATIENT ADMISSION ──────────────────────────────────────────────────
     {
         "event_pattern": "patient_admitted",
-        "description": "Handle new patient admission",
+        "description": "Full admission pipeline: data → triage → bed → doctor → billing → insurance → alert",
         "priority": 1,
         "task_templates": [
             {
@@ -81,11 +131,50 @@ PLANNING_RULES: List[Dict[str, Any]] = [
                 "priority": 1,
             },
             {
+                "task": "triage_patient",
+                "agent": "TriageAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "chief_complaint": "chief_complaint",
+                },
+                "depends_on_index": 0,
+                "priority": 2,
+            },
+            {
+                "task": "manage_beds",
+                "agent": "BedManagementAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "department": "department",
+                },
+                "depends_on_index": 1,
+                "priority": 3,
+            },
+            {
                 "task": "assign_doctor",
                 "agent": "SchedulerAgent",
                 "params_map": {"patient_id": "patient_id"},
                 "depends_on_index": 0,
-                "priority": 2,
+                "priority": 4,
+            },
+            {
+                "task": "initiate_billing",
+                "agent": "BillingAgent",
+                "params_map": {"patient_id": "patient_id"},
+                "depends_on_index": 0,
+                "priority": 5,
+            },
+            {
+                "task": "verify_insurance",
+                "agent": "InsuranceAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "insurance_provider": "insurance_provider",
+                    "member_id": "member_id",
+                    "plan_type": "plan_type",
+                },
+                "depends_on_index": 4,
+                "priority": 6,
             },
             {
                 "task": "send_alert",
@@ -94,14 +183,16 @@ PLANNING_RULES: List[Dict[str, Any]] = [
                     "recipient": "nursing_station",
                     "channel": "system",
                 },
-                "depends_on_index": 1,
-                "priority": 3,
+                "depends_on_index": 2,
+                "priority": 7,
             },
         ],
     },
+
+    # ── PATIENT DISCHARGE ──────────────────────────────────────────────────
     {
         "event_pattern": "patient_discharged",
-        "description": "Handle patient discharge",
+        "description": "Discharge pipeline: data → finalize billing → insurance claim → supervisor discharge → alert",
         "priority": 1,
         "task_templates": [
             {
@@ -111,27 +202,95 @@ PLANNING_RULES: List[Dict[str, Any]] = [
                 "priority": 1,
             },
             {
+                "task": "finalize_billing",
+                "agent": "BillingAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "billing_case_id": "billing_case_id",
+                },
+                "depends_on_index": 0,
+                "priority": 2,
+            },
+            {
+                "task": "submit_claim",
+                "agent": "InsuranceAgent",
+                "params_map": {"claim_id": "claim_id"},
+                "depends_on_index": 1,
+                "priority": 3,
+            },
+            {
+                "task": "supervise_discharge",
+                "agent": "SupervisorAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "billing_case_id": "billing_case_id",
+                },
+                "depends_on_index": 1,
+                "priority": 4,
+            },
+            {
                 "task": "send_alert",
                 "agent": "AlertAgent",
                 "params_map": {
                     "recipient": "billing_department",
                     "channel": "system",
-                    "message": "Patient discharged. Initiate billing process.",
+                    "message": "Patient discharged. Review invoice and claims.",
                 },
-                "depends_on_index": 0,
-                "priority": 2,
+                "depends_on_index": 1,
+                "priority": 5,
             },
         ],
     },
+
+    # ── LAB RESULTS READY ─────────────────────────────────────────────────
     {
         "event_pattern": "lab_results_ready",
-        "description": "Handle lab results notification",
-        "priority": 1,
+        "description": "Lab result workflow: data fetch → check lab results → notify physician",
+        "priority": 2,
         "task_templates": [
             {
                 "task": "fetch_patient_data",
                 "agent": "DataAgent",
                 "params_map": {"patient_id": "patient_id"},
+                "priority": 1,
+            },
+            {
+                "task": "check_lab_results",
+                "agent": "LabAgent",
+                "params_map": {
+                    "order_id": "order_id",
+                    "result_data": "result_data",
+                },
+                "depends_on_index": 0,
+                "priority": 2,
+            },
+            {
+                "task": "notify_staff",
+                "agent": "AlertAgent",
+                "params_map": {
+                    "recipient": "attending_physician",
+                    "channel": "system",
+                    "patient_id": "patient_id",
+                },
+                "depends_on_index": 1,
+                "priority": 3,
+            },
+        ],
+    },
+
+    # ── CRITICAL LAB RESULT ───────────────────────────────────────────────
+    {
+        "event_pattern": "critical_lab_result",
+        "description": "Critical lab: immediate escalation + physician notification + supervisor alert",
+        "priority": 1,
+        "task_templates": [
+            {
+                "task": "check_lab_results",
+                "agent": "LabAgent",
+                "params_map": {
+                    "order_id": "order_id",
+                    "result_data": "result_data",
+                },
                 "priority": 1,
             },
             {
@@ -142,15 +301,16 @@ PLANNING_RULES: List[Dict[str, Any]] = [
                     "channel": "system",
                     "patient_id": "patient_id",
                 },
-                "depends_on_index": 0,
-                "priority": 2,
+                "priority": 1,
             },
         ],
     },
+
+    # ── STANDALONE TRIAGE ─────────────────────────────────────────────────
     {
-        "event_pattern": "emergency_*",
-        "description": "Handle any emergency event",
-        "priority": 0,  # Highest priority
+        "event_pattern": "triage_request",
+        "description": "Standalone triage: score patient and classify urgency",
+        "priority": 2,
         "task_templates": [
             {
                 "task": "fetch_patient_data",
@@ -159,27 +319,98 @@ PLANNING_RULES: List[Dict[str, Any]] = [
                 "priority": 1,
             },
             {
-                "task": "assign_doctor",
-                "agent": "SchedulerAgent",
-                "params_map": {"patient_id": "patient_id"},
+                "task": "triage_patient",
+                "agent": "TriageAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "chief_complaint": "chief_complaint",
+                },
                 "depends_on_index": 0,
+                "priority": 2,
+            },
+        ],
+    },
+
+    # ── STANDALONE BED REQUEST ────────────────────────────────────────────
+    {
+        "event_pattern": "bed_request",
+        "description": "Standalone bed management: find and reserve best available bed",
+        "priority": 2,
+        "task_templates": [
+            {
+                "task": "manage_beds",
+                "agent": "BedManagementAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "department": "department",
+                },
                 "priority": 1,
             },
             {
                 "task": "send_alert",
                 "agent": "AlertAgent",
                 "params_map": {
-                    "recipient": "emergency_team",
+                    "recipient": "ward_coordinator",
                     "channel": "system",
-                    "message": "EMERGENCY: Immediate attention required",
                 },
                 "depends_on_index": 0,
+                "priority": 2,
+            },
+        ],
+    },
+
+    # ── LAB ORDER REQUEST ─────────────────────────────────────────────────
+    {
+        "event_pattern": "lab_order_request",
+        "description": "Order a lab test and collect sample",
+        "priority": 2,
+        "task_templates": [
+            {
+                "task": "order_lab",
+                "agent": "LabAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "test_name": "test_name",
+                    "priority": "priority",
+                    "ordered_by": "ordered_by",
+                },
                 "priority": 1,
             },
         ],
     },
+
+    # ── BILLING INQUIRY ───────────────────────────────────────────────────
     {
-        # Catch-all pattern for unknown events — generates a basic plan
+        "event_pattern": "billing_inquiry",
+        "description": "Billing status check and insurance verification",
+        "priority": 3,
+        "task_templates": [
+            {
+                "task": "verify_insurance",
+                "agent": "InsuranceAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "insurance_provider": "insurance_provider",
+                    "member_id": "member_id",
+                },
+                "priority": 1,
+            },
+            {
+                "task": "send_alert",
+                "agent": "AlertAgent",
+                "params_map": {
+                    "recipient": "billing_department",
+                    "channel": "system",
+                    "message": "Billing inquiry processed. Insurance verification complete.",
+                },
+                "depends_on_index": 0,
+                "priority": 2,
+            },
+        ],
+    },
+
+    # ── CATCH-ALL ─────────────────────────────────────────────────────────
+    {
         "event_pattern": "*",
         "description": "Default handler for unrecognized events",
         "priority": 99,
@@ -202,13 +433,13 @@ PLANNING_RULES: List[Dict[str, Any]] = [
 class RuleBasedPlanner(BasePlanner):
     """
     Data-driven planner using pattern-matched rules.
-    
+
     How it works:
     1. Iterates through PLANNING_RULES looking for event_pattern match
     2. Uses the FIRST matching rule (sorted by priority)
     3. Expands task_templates with context data
     4. Returns a WorkflowPlan
-    
+
     To handle new events: ADD A RULE to PLANNING_RULES.
     No code changes needed.
     """
@@ -216,7 +447,7 @@ class RuleBasedPlanner(BasePlanner):
     def __init__(self, rules: Optional[List[Dict[str, Any]]] = None):
         """
         Initialize with rules. Defaults to PLANNING_RULES.
-        
+
         In production, rules could be loaded from:
         - Database table
         - Config file (YAML/JSON)
@@ -235,7 +466,7 @@ class RuleBasedPlanner(BasePlanner):
     ) -> WorkflowPlan:
         """
         Generate a plan by matching the event against rules.
-        
+
         NOT hardcoded:
         - Rules are data, matched by pattern
         - Tasks are generated from templates
@@ -295,7 +526,7 @@ class RuleBasedPlanner(BasePlanner):
     ) -> List[TaskPlan]:
         """
         Expand task templates into concrete TaskPlan objects.
-        
+
         - Maps parameters from context using params_map
         - Resolves depends_on relationships
         - Validates agent capabilities
@@ -331,7 +562,7 @@ class RuleBasedPlanner(BasePlanner):
     def add_rule(self, rule: Dict[str, Any]) -> None:
         """
         Dynamically add a new planning rule.
-        
+
         This allows extending the planner at runtime without code changes.
         """
         self.rules.append(rule)
@@ -358,15 +589,15 @@ class RuleBasedPlanner(BasePlanner):
 class LLMPlanner(BasePlanner):
     """
     LLM-powered planner (stub/template).
-    
+
     Shows how to integrate an LLM for dynamic plan generation.
     In production, replace the stub with actual LLM API calls.
-    
+
     The LLM receives:
     - Event description
     - Available agents and their capabilities
     - Context data
-    
+
     And returns a structured JSON plan.
     """
 
@@ -383,7 +614,7 @@ class LLMPlanner(BasePlanner):
     ) -> WorkflowPlan:
         """
         Generate plan using LLM.
-        
+
         If no API key is configured, falls back to RuleBasedPlanner.
         """
         if not self.api_key:
