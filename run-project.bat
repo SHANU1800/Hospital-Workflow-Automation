@@ -8,6 +8,7 @@ set "HEALTH_URL=%APP_URL%/health"
 set "DOCS_URL=%APP_URL%/docs"
 set "MAX_TRIES=45"
 set "WAIT_SECONDS=2"
+set "ENV_FILE=%PROJECT_DIR%\.env"
 
 echo.
 echo ==================================================
@@ -18,6 +19,33 @@ echo.
 if not exist "%PROJECT_DIR%\docker-compose.yml" (
     echo [ERROR] Could not find docker-compose.yml at:
     echo         "%PROJECT_DIR%"
+    pause
+    exit /b 1
+)
+
+if not exist "%ENV_FILE%" (
+    echo [ERROR] Missing .env file:
+    echo         "%ENV_FILE%"
+    echo [HINT]  Create hospital-agent-system\.env with Neon DATABASE_URL values.
+    pause
+    exit /b 1
+)
+
+set "DATABASE_URL_VALUE="
+for /f "tokens=1,* delims==" %%A in ('findstr /B /I "DATABASE_URL=" "%ENV_FILE%"') do (
+    set "DATABASE_URL_VALUE=%%B"
+)
+
+if not defined DATABASE_URL_VALUE (
+    echo [ERROR] DATABASE_URL is missing in "%ENV_FILE%".
+    pause
+    exit /b 1
+)
+
+echo !DATABASE_URL_VALUE! | findstr /I "db:5432 localhost:5433 hospital_db" >nul
+if not errorlevel 1 (
+    echo [ERROR] DATABASE_URL still points to old local docker database host.
+    echo [HINT]  Update DATABASE_URL in .env to Neon/external Postgres before launch.
     pause
     exit /b 1
 )
@@ -101,19 +129,31 @@ goto :HEALTH_WAIT
 
 :STARTED
 echo.
+echo [INFO] Running seed synchronization against configured Neon database...
+!COMPOSE_CMD! exec -T app python scripts/seed_neon_db.py >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] Seed sync command failed inside container.
+    echo [WARN] App is running; you can seed manually with:
+    echo        docker compose exec -T app python scripts/seed_neon_db.py
+) else (
+    echo [OK] Database seed synchronization completed.
+)
+
+echo.
 echo ==================================================
 echo   App URL : %APP_URL%
 echo   Docs    : %DOCS_URL%
-echo   DB Port : localhost:5433
+echo   DB      : Neon Postgres (from hospital-agent-system\.env)
 echo ==================================================
 echo.
 
 start "" "%APP_URL%"
 start "" "%DOCS_URL%"
 
-echo [INFO] Streaming logs. Press Ctrl+C to stop logs.
-echo [INFO] Containers will keep running in the background.
+echo [INFO] Containers are running in the background.
+echo [INFO] To view logs later, run:
+echo        !COMPOSE_CMD! logs --follow --tail=80
 echo.
-!COMPOSE_CMD! logs --follow --tail=50
+echo [DONE] Launch complete.
 
 endlocal

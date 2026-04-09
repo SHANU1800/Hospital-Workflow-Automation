@@ -9,7 +9,7 @@ This folder contains project documentation for the repository.
 - **A2A (Agent-to-Agent) coordination** via a central orchestrator
 - **MCP-style tool access** through a registry (agents call tools, not resources directly)
 - **Dynamic workflow planning** using pattern-matched rules (not hardcoded per endpoint)
-- **PostgreSQL persistence** for patients, doctors, and notifications
+- **PostgreSQL persistence (Neon/external)** for patients, doctors, and notifications
 - **Web dashboard UI** served from the same FastAPI app
 
 ## Documentation map
@@ -31,6 +31,15 @@ This folder contains project documentation for the repository.
 
 6. [agent-and-mcp-hierarchy.md](./agent-and-mcp-hierarchy.md)  
    Current and target hierarchy trees for agents and MCP tools.
+
+7. [start-and-launch-guide.md](./start-and-launch-guide.md)  
+   Practical startup instructions for Neon-based runs using `run-project.bat` or manual Docker commands.
+
+8. [interview-flow-playbook.md](./interview-flow-playbook.md)  
+   Structured speaking flow for interviews and judging rounds, including timing and response strategy.
+
+9. [interview-quick-cheatsheet.md](./interview-quick-cheatsheet.md)  
+   One-page last-minute prep card with pitch, demo order, and concise answer framework.
 
 ---
 

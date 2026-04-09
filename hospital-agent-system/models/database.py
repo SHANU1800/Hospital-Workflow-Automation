@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import time
 from datetime import datetime
 from typing import AsyncGenerator
 
@@ -33,10 +32,12 @@ from sqlalchemy.orm import DeclarativeBase
 # Engine & Session Factory
 # ─────────────────────────────────────────────
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://hospital:hospital@db:5432/hospital_db",
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not configured. This project uses external PostgreSQL (Neon). "
+        "Set DATABASE_URL in hospital-agent-system/.env before starting the app."
+    )
 
 engine = create_async_engine(DATABASE_URL, echo=False, pool_size=10, max_overflow=20)
 
@@ -142,6 +143,26 @@ class User(Base):
             "email": self.email,
             "role": self.role,
             "is_active": self.is_active,
+            "created_at": str(self.created_at) if self.created_at else None,
+            "updated_at": str(self.updated_at) if self.updated_at else None,
+        }
+
+
+class UserDoctorLink(Base):
+    """Mapping between auth user account and doctor profile record."""
+    __tablename__ = "user_doctor_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, unique=True, index=True)
+    doctor_id = Column(Integer, nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "doctor_id": self.doctor_id,
             "created_at": str(self.created_at) if self.created_at else None,
             "updated_at": str(self.updated_at) if self.updated_at else None,
         }
@@ -334,6 +355,33 @@ class InsuranceClaim(Base):
         }
 
 
+class PatientInsuranceProfile(Base):
+    """Saved insurance details for each patient, reusable across claim submissions."""
+    __tablename__ = "patient_insurance_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, nullable=False, unique=True, index=True)
+    insurance_provider = Column(String(200), nullable=True)
+    plan_type = Column(String(100), nullable=True)
+    member_id = Column(String(100), nullable=True)
+    policy_number = Column(String(100), nullable=True)
+    group_number = Column(String(100), nullable=True)
+    updated_at = Column(DateTime, onupdate=func.now(), server_default=func.now(), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "insurance_provider": self.insurance_provider,
+            "plan_type": self.plan_type,
+            "member_id": self.member_id,
+            "policy_number": self.policy_number,
+            "group_number": self.group_number,
+            "updated_at": str(self.updated_at) if self.updated_at else None,
+        }
+
+
 class ChargeCode(Base):
     """Service to billing code lookup table."""
     __tablename__ = "charge_codes"
@@ -379,6 +427,65 @@ class InsuranceEligibilityRule(Base):
             "coverage_percentage": self.coverage_percentage,
             "covered_services": self.covered_services or [],
             "is_active": self.is_active,
+        }
+
+
+class DoctorAvailabilitySlot(Base):
+    """Fixed-size appointment slots for each doctor."""
+    __tablename__ = "doctor_availability_slots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(Integer, nullable=False, index=True)
+    department = Column(String(100), nullable=False, index=True)
+    slot_start = Column(DateTime, nullable=False, index=True)
+    slot_end = Column(DateTime, nullable=False)
+    is_booked = Column(Boolean, default=False)
+    booked_patient_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "doctor_id": self.doctor_id,
+            "department": self.department,
+            "slot_start": str(self.slot_start),
+            "slot_end": str(self.slot_end),
+            "is_booked": self.is_booked,
+            "booked_patient_id": self.booked_patient_id,
+        }
+
+
+class Appointment(Base):
+    """Booked appointment record with lifecycle status for patient and doctor flows."""
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, nullable=False, index=True)
+    doctor_id = Column(Integer, nullable=False, index=True)
+    department = Column(String(100), nullable=False, index=True)
+    slot_id = Column(Integer, nullable=False, index=True)
+    appointment_start = Column(DateTime, nullable=False, index=True)
+    appointment_end = Column(DateTime, nullable=False)
+    status = Column(String(50), default="confirmed")  # confirmed, completed, cancelled
+    notes = Column(Text, nullable=True)
+    confirmation_code = Column(String(100), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "doctor_id": self.doctor_id,
+            "department": self.department,
+            "slot_id": self.slot_id,
+            "appointment_start": str(self.appointment_start),
+            "appointment_end": str(self.appointment_end),
+            "status": self.status,
+            "notes": self.notes,
+            "confirmation_code": self.confirmation_code,
+            "created_at": str(self.created_at),
         }
 
 

@@ -653,6 +653,7 @@ body {
 }
 
 .input-group input,
+.input-group select,
 .input-group textarea {
     width: 100%;
     padding: 12px 16px;
@@ -667,6 +668,7 @@ body {
 }
 
 .input-group input:focus,
+.input-group select:focus,
 .input-group textarea:focus {
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 3px var(--accent-primary-glow);
@@ -1069,6 +1071,234 @@ body {
     margin-top: 2px;
 }
 
+.page-header-bar input {
+    padding: 9px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.page-header-bar select {
+    padding: 9px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.page-header-bar select:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-primary-glow);
+}
+
+.filter-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.patient-id-input {
+    max-width: 140px;
+}
+
+.page-header-bar .patient-id-input {
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--border-radius-sm);
+    padding: 9px 12px;
+}
+
+.patient-insurance-card {
+    margin-bottom: 12px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.patient-insurance-header {
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.04));
+}
+
+.patient-insurance-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.insurance-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.insurance-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.insurance-field label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.insurance-field input {
+    width: 100%;
+    padding: 10px 12px !important;
+    background: var(--bg-input) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary) !important;
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.insurance-field input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-primary-glow);
+}
+
+.insurance-status {
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    background: rgba(59, 130, 246, 0.1);
+    color: #bfdbfe;
+    border-radius: var(--border-radius-sm);
+    padding: 9px 12px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.ops-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.ops-mini-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 12px 14px;
+}
+
+.ops-mini-value {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.ops-mini-label {
+    margin-top: 2px;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.data-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-input);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+}
+
+.data-table thead th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    background: rgba(99, 102, 241, 0.08);
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.data-table tbody td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.84rem;
+    vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.status-badge.available,
+.status-badge.approved,
+.status-badge.paid,
+.status-badge.closed {
+    background: rgba(16, 185, 129, 0.14);
+    color: #6ee7b7;
+}
+
+.status-badge.occupied,
+.status-badge.submitted,
+.status-badge.invoiced {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+}
+
+.status-badge.pending,
+.status-badge.open,
+.status-badge.reserved,
+.status-badge.cleaning {
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+}
+
+.status-badge.rejected,
+.status-badge.cancelled {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+}
+
+.table-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.page-header-bar input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-primary-glow);
+}
+
 .log-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -1452,6 +1682,279 @@ body {
     display: none !important;
 }
 
+.appointment-panel {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.slot-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.slot-card:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-1px);
+}
+
+.slot-card input[type='radio'] {
+    accent-color: var(--accent-primary);
+}
+
+.appointment-actions {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.voice-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 14px;
+}
+
+.voice-status {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* ── Doctor Calendar ─────────────────────────────── */
+.doctor-dashboard-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.doctor-dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.95fr) minmax(380px, 1.35fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.doctor-calendar-column,
+.doctor-details-column {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0));
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 14px;
+}
+
+.doctor-details-header h3 {
+    font-size: 0.98rem;
+    font-weight: 700;
+}
+
+.doctor-details-header p {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.doctor-calendar-panel {
+    margin-top: 14px;
+    padding: 14px 12px 12px;
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.12), transparent 58%), var(--bg-input);
+}
+
+.doctor-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.doctor-calendar-header h3 {
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.doctor-calendar-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#doctor-calendar-month-label {
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+    min-width: 140px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.doctor-calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.doctor-calendar-weekdays span {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.doctor-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.doctor-calendar-cell {
+    min-height: 56px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.doctor-calendar-cell.is-empty {
+    border-style: dashed;
+    opacity: 0.4;
+}
+
+.doctor-calendar-day {
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--text-primary);
+    transition: border-color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.doctor-calendar-day:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.doctor-calendar-day.has-appointments {
+    border-color: rgba(16, 185, 129, 0.55);
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.06));
+}
+
+.doctor-calendar-day.is-selected {
+    border-color: var(--accent-primary);
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.28), rgba(99, 102, 241, 0.1));
+    box-shadow: 0 0 0 2px var(--accent-primary-glow), 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.doctor-calendar-day.is-today .day-number {
+    color: var(--accent-primary-hover);
+}
+
+.doctor-calendar-day .day-number {
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.doctor-calendar-day .day-count {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.doctor-calendar-day.has-appointments .day-count {
+    color: #6ee7b7;
+}
+
+.doctor-calendar-day.is-selected .day-count {
+    color: #c7d2fe;
+}
+
+.doctor-calendar-day .day-count-empty {
+    color: var(--text-muted);
+}
+
+.doctor-calendar-legend {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+}
+
+.legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid var(--border-color);
+}
+
+.legend-dot.has-appointments {
+    background: rgba(16, 185, 129, 0.8);
+    border-color: rgba(16, 185, 129, 0.7);
+}
+
+.legend-dot.is-selected {
+    background: rgba(99, 102, 241, 0.9);
+    border-color: rgba(99, 102, 241, 0.8);
+}
+
+.doctor-appointments-list .appointment-panel {
+    border-radius: 12px;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.08), rgba(21, 27, 46, 0.9));
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+    padding: 14px 14px 12px;
+}
+
+.doctor-appointments-list .appointment-panel > div:first-child {
+    font-size: 0.92rem;
+    font-weight: 800;
+}
+
+.doctor-appointments-list .appointment-panel > div:not(:first-child) {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.doctor-appointments-list .appointment-panel strong {
+    color: var(--text-primary);
+}
+
 /* ── Loading Overlay ───────────────────────────────── */
 .loading-overlay {
     position: fixed;
@@ -1524,6 +2027,10 @@ body {
     .preset-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+
+    .doctor-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 600px) {
@@ -1531,4 +2038,16 @@ body {
     .health-badges { display: none; }
     .patient-cards { grid-template-columns: 1fr; }
     .auth-user-label { display: none; }
+
+    .doctor-calendar-cell {
+        min-height: 46px;
+    }
+
+    .doctor-calendar-day .day-number {
+        font-size: 0.8rem;
+    }
+
+    .doctor-calendar-day .day-count {
+        font-size: 0.68rem;
+    }
 }

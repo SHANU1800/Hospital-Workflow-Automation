@@ -116,6 +116,14 @@ class ToolRegistry:
             "get_lab_result": {"super_admin", "staff", "doctor"},
             "flag_critical_lab_result": {"super_admin", "staff", "doctor"},
             "attach_lab_report": {"super_admin", "staff", "doctor"},
+            # Appointment and scheduling
+            "recommend_department_from_symptoms": {"super_admin", "staff", "doctor"},
+            "list_available_doctors": {"super_admin", "staff", "doctor", "auditor"},
+            "get_doctor_slots": {"super_admin", "staff", "doctor", "auditor"},
+            "book_appointment": {"super_admin", "staff", "doctor"},
+            "get_appointment_details": {"super_admin", "staff", "doctor", "auditor"},
+            "list_doctor_appointments": {"super_admin", "staff", "doctor", "auditor"},
+            "update_appointment": {"super_admin", "staff", "doctor"},
         }
 
     def register(

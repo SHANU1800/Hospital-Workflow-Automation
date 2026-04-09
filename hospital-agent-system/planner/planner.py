@@ -409,6 +409,83 @@ PLANNING_RULES: List[Dict[str, Any]] = [
         ],
     },
 
+    # ── DOCTOR FOLLOW-UP MULTI-AGENT WORKFLOW ────────────────────────────
+    {
+        "event_pattern": "doctor_followup_workflow",
+        "description": "Doctor follow-up: data → triage → lab order → billing → insurance → supervisor coordination → alert",
+        "priority": 2,
+        "task_templates": [
+            {
+                "task": "fetch_patient_data",
+                "agent": "DataAgent",
+                "params_map": {"patient_id": "patient_id"},
+                "priority": 1,
+            },
+            {
+                "task": "triage_patient",
+                "agent": "TriageAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "chief_complaint": "chief_complaint",
+                },
+                "depends_on_index": 0,
+                "priority": 2,
+            },
+            {
+                "task": "order_lab",
+                "agent": "LabAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "test_name": "test_name",
+                    "priority": "priority",
+                    "ordered_by": "ordered_by",
+                },
+                "depends_on_index": 1,
+                "priority": 3,
+            },
+            {
+                "task": "initiate_billing",
+                "agent": "BillingAgent",
+                "params_map": {"patient_id": "patient_id"},
+                "depends_on_index": 0,
+                "priority": 4,
+            },
+            {
+                "task": "verify_insurance",
+                "agent": "InsuranceAgent",
+                "params_map": {
+                    "patient_id": "patient_id",
+                    "insurance_provider": "insurance_provider",
+                    "member_id": "member_id",
+                    "plan_type": "plan_type",
+                },
+                "depends_on_index": 3,
+                "priority": 5,
+            },
+            {
+                "task": "coordinate_multi_domain",
+                "agent": "SupervisorAgent",
+                "params_map": {
+                    "agents": ["BillingAgent", "AlertAgent"],
+                    "request": "get_billing_status",
+                },
+                "depends_on_index": 4,
+                "priority": 6,
+            },
+            {
+                "task": "send_alert",
+                "agent": "AlertAgent",
+                "params_map": {
+                    "recipient": "care_team",
+                    "channel": "system",
+                    "message": "Doctor follow-up workflow executed. Review triage, lab, billing, and insurance updates.",
+                },
+                "depends_on_index": 5,
+                "priority": 7,
+            },
+        ],
+    },
+
     # ── CATCH-ALL ─────────────────────────────────────────────────────────
     {
         "event_pattern": "*",

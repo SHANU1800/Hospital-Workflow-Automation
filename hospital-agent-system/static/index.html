@@ -40,6 +40,38 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 <span>Trigger Event</span>
             </a>
+            <a href="#" class="nav-item" data-page="appointments" id="nav-appointments">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Appointments</span>
+            </a>
+            <a href="#" class="nav-item" data-page="schedule" id="nav-schedule">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+                <span>My Schedule</span>
+            </a>
+            <a href="#" class="nav-item" data-page="mybilling" id="nav-mybilling">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18"/><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 12h8"/><path d="M8 16h4"/></svg>
+                <span>My Billing</span>
+            </a>
+            <a href="#" class="nav-item" data-page="patients" id="nav-patients">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
+                <span>Patients</span>
+            </a>
+            <a href="#" class="nav-item" data-page="beds" id="nav-beds">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18"/><path d="M5 10V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v4"/><path d="M14 10V7a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v3"/><path d="M3 14h18v6H3z"/></svg>
+                <span>Beds</span>
+            </a>
+            <a href="#" class="nav-item" data-page="billing" id="nav-billing">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="7" y1="15" x2="11" y2="15"/></svg>
+                <span>Billing</span>
+            </a>
+            <a href="#" class="nav-item" data-page="insurance" id="nav-insurance">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"/><path d="M9 12l2 2 4-4"/></svg>
+                <span>Insurance</span>
+            </a>
+            <a href="#" class="nav-item" data-page="reports" id="nav-reports">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <span>Reports</span>
+            </a>
             <a href="#" class="nav-item" data-page="logs" id="nav-logs">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 <span>Execution Logs</span>
@@ -160,7 +192,7 @@
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                                 </div>
                                 <span>Quick Admit</span>
-                                <small>Patient ID 101</small>
+                                <small>First DB Patient</small>
                             </button>
                             <button class="quick-action-btn" onclick="quickEmergency()">
                                 <div class="qa-icon qa-emergency">
@@ -214,52 +246,11 @@
                         <div class="input-group">
                             <label for="admit-patient-id">Patient ID</label>
                             <div class="input-wrapper">
-                                <input type="number" id="admit-patient-id" placeholder="e.g. 101" min="1" value="101">
-                                <div class="input-hint">Available: 101–108</div>
+                                <input type="number" id="admit-patient-id" placeholder="Select a patient from database" min="1">
+                                <div class="input-hint" id="admit-patient-hint">Loading patients from database...</div>
                             </div>
                         </div>
-                        <div class="patient-cards" id="patient-quick-select">
-                            <div class="patient-chip" onclick="selectPatient(101)">
-                                <span class="chip-id">101</span>
-                                <span class="chip-name">John Smith</span>
-                                <span class="chip-dept">Cardiology</span>
-                            </div>
-                            <div class="patient-chip" onclick="selectPatient(102)">
-                                <span class="chip-id">102</span>
-                                <span class="chip-name">Sarah Johnson</span>
-                                <span class="chip-dept">Neurology</span>
-                            </div>
-                            <div class="patient-chip" onclick="selectPatient(103)">
-                                <span class="chip-id">103</span>
-                                <span class="chip-name">Mike Davis</span>
-                                <span class="chip-dept">Orthopedics</span>
-                            </div>
-                            <div class="patient-chip" onclick="selectPatient(104)">
-                                <span class="chip-id">104</span>
-                                <span class="chip-name">Emily Chen</span>
-                                <span class="chip-dept">General</span>
-                            </div>
-                            <div class="patient-chip" onclick="selectPatient(105)">
-                                <span class="chip-id">105</span>
-                                <span class="chip-name">Robert Wilson</span>
-                                <span class="chip-dept">Cardiology</span>
-                            </div>
-                            <div class="patient-chip" onclick="selectPatient(106)">
-                                <span class="chip-id">106</span>
-                                <span class="chip-name">Lisa Anderson</span>
-                                <span class="chip-dept">Oncology</span>
-                            </div>
-                            <div class="patient-chip" onclick="selectPatient(107)">
-                                <span class="chip-id">107</span>
-                                <span class="chip-name">James Taylor</span>
-                                <span class="chip-dept">Pulmonology</span>
-                            </div>
-                            <div class="patient-chip" onclick="selectPatient(108)">
-                                <span class="chip-id">108</span>
-                                <span class="chip-name">Maria Garcia</span>
-                                <span class="chip-dept">General</span>
-                            </div>
-                        </div>
+                        <div class="patient-cards" id="patient-quick-select"></div>
                         <button class="btn btn-primary btn-lg" id="btn-admit" onclick="admitPatient()">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
                             Run Admission Workflow
@@ -356,6 +347,289 @@
             </div>
         </section>
 
+        <!-- ── Page: Appointments ───────────────── -->
+        <section class="page" id="page-appointments">
+            <div class="dashboard-grid">
+                <div class="card card-lg" id="patient-booking-card">
+                    <div class="card-header">
+                        <h2>Patient Booking Flow</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <label for="booking-patient-name">Patient Name (for new registration)</label>
+                            <input type="text" id="booking-patient-name" placeholder="e.g. Alex Morgan">
+                        </div>
+                        <div class="input-group">
+                            <label for="booking-patient-id">Patient ID (optional)</label>
+                            <input type="number" id="booking-patient-id" placeholder="e.g. 101">
+                        </div>
+                        <div class="input-group">
+                            <label for="booking-patient-age">Age (optional)</label>
+                            <input type="number" id="booking-patient-age" placeholder="e.g. 45" min="0" max="130">
+                        </div>
+                        <button class="btn btn-ghost" id="btn-resolve-patient" onclick="resolvePatientIdentity()">Check Registration / Generate Patient ID</button>
+
+                        <div id="identity-box" class="appointment-panel" style="display:none; margin-top:16px;"></div>
+
+                        <div class="input-group">
+                            <label for="booking-symptoms">Symptoms</label>
+                            <textarea id="booking-symptoms" rows="4" placeholder="Describe symptoms here..."></textarea>
+                        </div>
+                        <div class="voice-controls">
+                            <button class="btn btn-ghost" id="btn-voice-input" type="button" onclick="toggleVoiceInput()">🎤 Start Voice Input</button>
+                            <span id="voice-status" class="voice-status">Voice input idle</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="booking-audio-note">Audio Note Placeholder</label>
+                            <input type="text" id="booking-audio-note" placeholder="Optional future audio transcript metadata">
+                        </div>
+                        <button class="btn btn-primary" id="btn-analyze-symptoms" onclick="analyzeSymptomsAndRecommend()">Analyze Symptoms</button>
+
+                        <div id="recommendation-box" class="appointment-panel" style="display:none; margin-top:16px;"></div>
+                        <div id="booking-agent-workflow" class="appointment-panel" style="display:none; margin-top:16px;"></div>
+
+                        <div class="input-group" style="margin-top:16px;">
+                            <label for="booking-date">Appointment Date</label>
+                            <input type="date" id="booking-date">
+                        </div>
+                        <div class="input-hint">Doctors and slots are auto-loaded by agents based on your symptoms and selected date.</div>
+
+                        <div class="input-group" style="margin-top:16px;">
+                            <label for="booking-doctor-select">Select Doctor</label>
+                            <select id="booking-doctor-select"></select>
+                        </div>
+
+                        <div id="slots-box" class="slot-grid" style="margin-top:16px;"></div>
+
+                        <button class="btn btn-primary" id="btn-book-appointment" onclick="bookAppointmentFlow()" disabled style="margin-top:16px;">Book Appointment</button>
+
+                        <div id="confirmation-box" class="appointment-panel" style="display:none; margin-top:16px;"></div>
+                    </div>
+                </div>
+
+                <div class="card card-lg" id="doctor-dashboard-card">
+                    <div class="card-header">
+                        <h2>Doctor Dashboard — Appointments</h2>
+                    </div>
+                    <div class="card-body doctor-dashboard-body">
+                        <div class="doctor-dashboard-grid">
+                            <div class="doctor-calendar-column">
+                                <div class="input-group">
+                                    <label for="doctor-dashboard-id">Doctor ID</label>
+                                    <input type="number" id="doctor-dashboard-id" placeholder="e.g. 1">
+                                </div>
+                                <div class="input-group">
+                                    <label for="doctor-dashboard-date">Filter Date</label>
+                                    <input type="date" id="doctor-dashboard-date">
+                                </div>
+                                <button class="btn btn-primary" onclick="loadDoctorDashboardAppointments()">Load Appointments</button>
+
+                                <div class="doctor-calendar-panel" id="doctor-calendar-panel">
+                                    <div class="doctor-calendar-header">
+                                        <h3>Appointments Calendar</h3>
+                                        <div class="doctor-calendar-controls">
+                                            <button class="btn btn-sm btn-ghost" type="button" onclick="shiftDoctorCalendarMonth(-1)">◀</button>
+                                            <span id="doctor-calendar-month-label">Month YYYY</span>
+                                            <button class="btn btn-sm btn-ghost" type="button" onclick="shiftDoctorCalendarMonth(1)">▶</button>
+                                        </div>
+                                    </div>
+                                    <div class="doctor-calendar-weekdays">
+                                        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                                    </div>
+                                    <div class="doctor-calendar-grid" id="doctor-calendar-grid"></div>
+                                    <div class="doctor-calendar-legend">
+                                        <span class="legend-item"><i class="legend-dot has-appointments"></i> Has appointments</span>
+                                        <span class="legend-item"><i class="legend-dot is-selected"></i> Selected day</span>
+                                    </div>
+                                    <div class="input-hint" id="doctor-calendar-hint">Enter Doctor ID and click a highlighted date to load appointment details.</div>
+                                </div>
+                            </div>
+
+                            <div class="doctor-details-column">
+                                <div class="doctor-details-header">
+                                    <h3>Appointments on Selected Date</h3>
+                                    <p>Click a date from the calendar to load details and actions.</p>
+                                </div>
+                                <div id="doctor-appointments-list" class="doctor-appointments-list" style="margin-top:16px;"></div>
+                            </div>
+                        </div>
+
+                        <div class="result-panel" id="doctor-workflow-result" style="display:none; margin-top:16px;">
+                            <div class="result-header">
+                                <h3>Doctor Multi-Agent Workflow</h3>
+                                <div class="result-status" id="doctor-workflow-status"></div>
+                            </div>
+                            <div class="workflow-timeline" id="doctor-workflow-timeline"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="page" id="page-schedule">
+            <div class="page-header-bar">
+                <div>
+                    <h2>My Schedule</h2>
+                    <p>Check upcoming appointments on your calendar</p>
+                </div>
+                <div class="filter-row">
+                    <input type="number" id="schedule-patient-id" placeholder="Patient ID" style="max-width:140px;" />
+                    <input type="date" id="schedule-date" />
+                    <button class="btn btn-ghost" onclick="loadPatientSchedule()">Load Schedule</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body" id="schedule-list"></div>
+            </div>
+        </section>
+
+        <section class="page" id="page-mybilling">
+            <div class="page-header-bar">
+                <div>
+                    <h2>My Billing</h2>
+                    <p>Track bill and insurance status, and claim insurance when needed</p>
+                </div>
+                <div class="filter-row">
+                    <input type="number" id="billing-patient-id" placeholder="Patient ID" class="patient-id-input" />
+                    <button class="btn btn-ghost" onclick="loadPatientBilling()">Load Billing</button>
+                </div>
+            </div>
+            <div class="card patient-insurance-card">
+                <div class="card-header patient-insurance-header">
+                    <h2>Insurance Details</h2>
+                    <button class="btn btn-sm btn-primary" onclick="savePatientInsuranceProfile()">Save Insurance Details</button>
+                </div>
+                <div class="card-body patient-insurance-body">
+                    <div class="insurance-form-grid">
+                        <div class="insurance-field">
+                            <label for="insurance-provider">Insurance Provider</label>
+                            <input type="text" id="insurance-provider" placeholder="e.g. BlueCross" />
+                        </div>
+                        <div class="insurance-field">
+                            <label for="insurance-plan">Plan Type</label>
+                            <input type="text" id="insurance-plan" placeholder="e.g. premium" />
+                        </div>
+                        <div class="insurance-field">
+                            <label for="insurance-member-id">Member ID</label>
+                            <input type="text" id="insurance-member-id" placeholder="e.g. BC-101-2024" />
+                        </div>
+                        <div class="insurance-field">
+                            <label for="insurance-policy-number">Policy Number</label>
+                            <input type="text" id="insurance-policy-number" placeholder="Optional" />
+                        </div>
+                        <div class="insurance-field">
+                            <label for="insurance-group-number">Group Number</label>
+                            <input type="text" id="insurance-group-number" placeholder="Optional" />
+                        </div>
+                    </div>
+                    <div class="insurance-status" id="insurance-profile-status">Save your insurance details before claiming insurance.</div>
+                </div>
+            </div>
+            <div class="ops-summary-grid" id="mybilling-summary"></div>
+            <div class="card">
+                <div class="card-body" id="mybilling-list"></div>
+            </div>
+        </section>
+
+        <section class="page" id="page-patients">
+            <div class="page-header-bar">
+                <div>
+                    <h2>Patients</h2>
+                    <p>View and manage patient operational details</p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="patients-search" placeholder="Search patient name" style="max-width:240px;"/>
+                    <button class="btn btn-ghost" onclick="loadStaffPatients()">Refresh</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body" id="patients-list"></div>
+            </div>
+        </section>
+
+        <section class="page" id="page-beds">
+            <div class="page-header-bar">
+                <div>
+                    <h2>Beds</h2>
+                    <p>Live bed inventory and occupancy controls</p>
+                </div>
+                <div class="filter-row">
+                    <input type="text" id="beds-ward-filter" placeholder="Ward (optional)" style="max-width:180px;"/>
+                    <select id="beds-status-filter" style="max-width:200px;">
+                        <option value="">All statuses</option>
+                        <option value="available">Available</option>
+                        <option value="occupied">Occupied</option>
+                        <option value="reserved">Reserved</option>
+                        <option value="cleaning">Cleaning</option>
+                    </select>
+                    <button class="btn btn-ghost" onclick="loadStaffBeds()">Refresh</button>
+                </div>
+            </div>
+            <div class="ops-summary-grid" id="beds-summary"></div>
+            <div class="card">
+                <div class="card-body" id="beds-list"></div>
+            </div>
+        </section>
+
+        <section class="page" id="page-billing">
+            <div class="page-header-bar">
+                <div>
+                    <h2>Billing Cases</h2>
+                    <p>Track billing lifecycle and invoice readiness</p>
+                </div>
+                <div class="filter-row">
+                    <select id="billing-status-filter" style="max-width:220px;">
+                        <option value="">All statuses</option>
+                        <option value="open">Open</option>
+                        <option value="invoiced">Invoiced</option>
+                        <option value="submitted">Submitted</option>
+                        <option value="paid">Paid</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <button class="btn btn-ghost" onclick="loadStaffBillingCases()">Refresh</button>
+                </div>
+            </div>
+            <div class="ops-summary-grid" id="billing-summary"></div>
+            <div class="card">
+                <div class="card-body" id="billing-list"></div>
+            </div>
+        </section>
+
+        <section class="page" id="page-insurance">
+            <div class="page-header-bar">
+                <div>
+                    <h2>Insurance Claims</h2>
+                    <p>Monitor claim statuses and settlement outcomes</p>
+                </div>
+                <div class="filter-row">
+                    <select id="claims-status-filter" style="max-width:220px;">
+                        <option value="">All statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="submitted">Submitted</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="paid">Paid</option>
+                    </select>
+                    <button class="btn btn-ghost" onclick="loadStaffInsuranceClaims()">Refresh</button>
+                </div>
+            </div>
+            <div class="ops-summary-grid" id="claims-summary"></div>
+            <div class="card">
+                <div class="card-body" id="claims-list"></div>
+            </div>
+        </section>
+
+        <section class="page" id="page-reports">
+            <div class="page-header-bar">
+                <div>
+                    <h2>Operational Reports</h2>
+                    <p>High-level KPIs across patients, beds, billing, claims, and appointments</p>
+                </div>
+                <button class="btn btn-ghost" onclick="loadStaffReportsSummary()">Refresh</button>
+            </div>
+            <div class="stats-grid" id="reports-kpi-grid"></div>
+        </section>
+
         <!-- ── Page: Execution Logs ──────────────── -->
         <section class="page" id="page-logs">
             <div class="page-header-bar">
@@ -430,6 +704,7 @@
                         <button type="button" class="demo-btn" onclick="fillDemoCredentials('staff_user', 'StaffUser@123')">Staff</button>
                         <button type="button" class="demo-btn" onclick="fillDemoCredentials('doctor_user', 'DoctorUser@123')">Doctor</button>
                         <button type="button" class="demo-btn" onclick="fillDemoCredentials('auditor_user', 'AuditorUser@123')">Auditor</button>
+                        <button type="button" class="demo-btn" onclick="fillDemoCredentials('patient_user', 'PatientUser@123')">Patient</button>
                     </div>
                 </div>
                 <p class="auth-error" id="auth-error"></p>

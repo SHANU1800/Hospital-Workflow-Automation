@@ -1,24 +1,6 @@
 version: "3.9"
 
 services:
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: hospital_db
-    environment:
-      POSTGRES_USER: hospital
-      POSTGRES_PASSWORD: hospital
-      POSTGRES_DB: hospital_db
-    ports:
-      - "5433:5432"
-    volumes:
-      - hospital_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hospital -d hospital_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   # FastAPI Application
   app:
     build:
@@ -29,12 +11,6 @@ services:
       - "8000:8000"
     env_file:
       - .env
-    depends_on:
-      db:
-        condition: service_healthy
     volumes:
       - .:/app
     restart: on-failure
-
-volumes:
-  hospital_pgdata:

@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -130,18 +131,28 @@ SAMPLE_PATIENTS = [
 ]
 
 SAMPLE_DOCTORS = [
-    {"id": 1, "name": "Dr. Amanda Hart", "department": "cardiology", "specialization": "Interventional Cardiology"},
-    {"id": 2, "name": "Dr. James Foster", "department": "cardiology", "specialization": "Electrophysiology"},
-    {"id": 3, "name": "Dr. Sarah Kim", "department": "neurology", "specialization": "Stroke & Vascular Neurology"},
-    {"id": 4, "name": "Dr. David Patel", "department": "neurology", "specialization": "Epilepsy"},
-    {"id": 5, "name": "Dr. Michael Ross", "department": "orthopedics", "specialization": "Joint Replacement"},
-    {"id": 6, "name": "Dr. Jennifer Liu", "department": "general", "specialization": "Internal Medicine"},
-    {"id": 7, "name": "Dr. Robert Chang", "department": "general", "specialization": "Emergency Medicine"},
-    {"id": 8, "name": "Dr. Emily Watson", "department": "oncology", "specialization": "Medical Oncology"},
-    {"id": 9, "name": "Dr. Andrew Bell", "department": "pulmonology", "specialization": "Critical Care"},
-    {"id": 10, "name": "Dr. Maria Santos", "department": "general", "specialization": "Family Medicine"},
-    {"id": 11, "name": "Dr. Kevin Chen", "department": "icu", "specialization": "Intensive Care"},
-    {"id": 12, "name": "Dr. Patricia Moore", "department": "icu", "specialization": "Critical Care Medicine"},
+    {"name": "Dr. Amanda Hart", "department": "cardiology", "specialization": "Interventional Cardiology"},
+    {"name": "Dr. James Foster", "department": "cardiology", "specialization": "Electrophysiology"},
+    {"name": "Dr. Sarah Kim", "department": "neurology", "specialization": "Stroke & Vascular Neurology"},
+    {"name": "Dr. David Patel", "department": "neurology", "specialization": "Epilepsy"},
+    {"name": "Dr. Michael Ross", "department": "orthopedics", "specialization": "Joint Replacement"},
+    {"name": "Dr. Jennifer Liu", "department": "general", "specialization": "Internal Medicine"},
+    {"name": "Dr. Robert Chang", "department": "general", "specialization": "Emergency Medicine"},
+    {"name": "Dr. Emily Watson", "department": "oncology", "specialization": "Medical Oncology"},
+    {"name": "Dr. Andrew Bell", "department": "pulmonology", "specialization": "Critical Care"},
+    {"name": "Dr. Maria Santos", "department": "general", "specialization": "Family Medicine"},
+    {"name": "Dr. Kevin Chen", "department": "icu", "specialization": "Intensive Care"},
+    {"name": "Dr. Patricia Moore", "department": "icu", "specialization": "Critical Care Medicine"},
+]
+
+REQUIRED_DOCTOR_DEPARTMENTS = [
+    "cardiology",
+    "neurology",
+    "orthopedics",
+    "general",
+    "oncology",
+    "pulmonology",
+    "icu",
 ]
 
 # Plan 1.0: Hospital bed inventory
@@ -251,7 +262,48 @@ SAMPLE_USERS = [
         "password": "AuditorUser@123",
         "role": "auditor",
     },
+    {
+        "username": "patient_user",
+        "email": "patient@hospital.local",
+        "password": "PatientUser@123",
+        "role": "patient",
+    },
 ]
+
+
+def _iso(dt: datetime) -> str:
+    return dt.isoformat()
+
+
+def _build_execution_log(event: str, agent: str, task: str, status: str = "completed") -> dict:
+    now = datetime.utcnow()
+    started = now - timedelta(seconds=2)
+    completed = now - timedelta(seconds=1)
+    return {
+        "execution_id": f"seed-{event}-{int(now.timestamp())}",
+        "plan_id": f"seed-plan-{event}",
+        "event": event,
+        "status": status,
+        "steps": [
+            {
+                "step_number": 1,
+                "task_id": f"seed-task-{event}",
+                "task": task,
+                "agent": agent,
+                "status": "completed",
+                "started_at": _iso(started),
+                "completed_at": _iso(completed),
+                "duration_ms": 650.0,
+                "tool_calls": [],
+                "a2a_messages": [],
+                "result": {"seeded": True, "event": event},
+                "error": None,
+            }
+        ],
+        "started_at": _iso(started),
+        "completed_at": _iso(completed),
+        "total_duration_ms": 1000.0,
+    }
 
 
 async def seed_database():
@@ -270,15 +322,25 @@ async def seed_database():
         ChargeCode,
         InsuranceEligibilityRule,
         User,
+        DoctorAvailabilitySlot,
+        Appointment,
+        TriageRecord,
+        LabOrder,
+        BillingCase,
+        InsuranceClaim,
+        PatientInsuranceProfile,
+        Notification,
+        ExecutionRecord,
+        UserDoctorLink,
     )
 
     async with async_session_factory() as session:
         # Check if patients already seeded
         result = await session.execute(select(Patient).limit(1))
         if result.scalar_one_or_none() is not None:
-            logger.info("📦 Database already seeded — skipping patients/doctors")
+            logger.info("📦 Patients already seeded — skipping patient insert")
         else:
-            logger.info("🌱 Seeding database with sample patients and doctors...")
+            logger.info("🌱 Seeding database with sample patients...")
 
             for p_data in SAMPLE_PATIENTS:
                 # Filter out extra fields not in the Patient model
@@ -289,15 +351,70 @@ async def seed_database():
                 patient = Patient(**patient_fields)
                 session.add(patient)
 
-            for d_data in SAMPLE_DOCTORS:
-                doctor = Doctor(**d_data)
-                session.add(doctor)
+            await session.commit()
+            logger.info(f"✅ Seeded {len(SAMPLE_PATIENTS)} patients")
 
+        # Ensure doctor catalog exists and covers each required department
+        existing_doctors_result = await session.execute(select(Doctor))
+        existing_doctors = existing_doctors_result.scalars().all()
+        existing_doctor_names = {d.name.strip().lower() for d in existing_doctors}
+
+        inserted_sample_doctors = 0
+        for d_data in SAMPLE_DOCTORS:
+            normalized_name = d_data["name"].strip().lower()
+            if normalized_name in existing_doctor_names:
+                continue
+            session.add(Doctor(**d_data))
+            existing_doctor_names.add(normalized_name)
+            inserted_sample_doctors += 1
+
+        if inserted_sample_doctors:
+            await session.commit()
+            logger.info(f"✅ Seeded {inserted_sample_doctors} missing sample doctors")
+        else:
+            logger.info("📦 Sample doctors already seeded — skipping")
+
+        # Add at least one doctor for any missing department
+        department_rows = await session.execute(select(Doctor.department))
+        existing_departments = {
+            (row[0] or "").strip().lower() for row in department_rows.all() if row[0]
+        }
+
+        patient_department_rows = await session.execute(select(Patient.department))
+        patient_departments = {
+            (row[0] or "").strip().lower() for row in patient_department_rows.all() if row[0]
+        }
+        required_departments = sorted(set(REQUIRED_DOCTOR_DEPARTMENTS).union(patient_departments))
+
+        added_department_doctors = 0
+        for department in required_departments:
+            if department in existing_departments:
+                continue
+
+            generated_name = f"Dr. Auto {department.title()}"
+            suffix = 1
+            while generated_name.strip().lower() in existing_doctor_names:
+                suffix += 1
+                generated_name = f"Dr. Auto {department.title()} {suffix}"
+
+            session.add(
+                Doctor(
+                    name=generated_name,
+                    department=department,
+                    specialization=f"{department.title()} Specialist",
+                    available=True,
+                )
+            )
+            existing_doctor_names.add(generated_name.strip().lower())
+            added_department_doctors += 1
+
+        if added_department_doctors:
             await session.commit()
             logger.info(
-                f"✅ Seeded {len(SAMPLE_PATIENTS)} patients and "
-                f"{len(SAMPLE_DOCTORS)} doctors"
+                f"✅ Added {added_department_doctors} doctors to cover missing departments"
             )
+        else:
+            logger.info("📦 Doctors already cover all required departments")
 
         # Check if beds already seeded
         bed_result = await session.execute(select(Bed).limit(1))
@@ -337,13 +454,16 @@ async def seed_database():
                 f"✅ Seeded {len(SAMPLE_INSURANCE_ELIGIBILITY_RULES)} insurance eligibility rules"
             )
 
-        # Check if users already seeded
-        user_result = await session.execute(select(User).limit(1))
-        if user_result.scalar_one_or_none() is not None:
+        # Ensure default users exist (idempotent insert of missing usernames)
+        existing_users_result = await session.execute(select(User.username))
+        existing_usernames = {row[0] for row in existing_users_result.all()}
+
+        missing_users = [u for u in SAMPLE_USERS if u["username"] not in existing_usernames]
+        if not missing_users:
             logger.info("📦 Users already seeded — skipping")
         else:
-            logger.info("🔐 Seeding default auth users...")
-            for u_data in SAMPLE_USERS:
+            logger.info("🔐 Seeding missing default auth users...")
+            for u_data in missing_users:
                 user = User(
                     username=u_data["username"],
                     email=u_data["email"],
@@ -353,7 +473,270 @@ async def seed_database():
                 )
                 session.add(user)
             await session.commit()
-            logger.info(f"✅ Seeded {len(SAMPLE_USERS)} users for RBAC auth")
+            logger.info(f"✅ Seeded {len(missing_users)} missing users for RBAC auth")
+
+        # Ensure doctor account is linked to a doctor profile for dashboard auto-fill
+        link_result = await session.execute(select(UserDoctorLink).limit(1))
+        if link_result.scalar_one_or_none() is not None:
+            logger.info("📦 User-doctor links already seeded — skipping")
+        else:
+            doctor_user_result = await session.execute(select(User).where(User.username == "doctor_user"))
+            doctor_user = doctor_user_result.scalar_one_or_none()
+            first_doctor_result = await session.execute(select(Doctor).order_by(Doctor.id.asc()))
+            first_doctor = first_doctor_result.scalars().first()
+
+            if doctor_user is not None and first_doctor is not None:
+                session.add(UserDoctorLink(user_id=doctor_user.id, doctor_id=first_doctor.id))
+                await session.commit()
+                logger.info(
+                    f"✅ Seeded user-doctor link: user #{doctor_user.id} -> doctor #{first_doctor.id}"
+                )
+            else:
+                logger.info("⚠️ Unable to seed user-doctor link (missing doctor_user or doctor record)")
+
+        # Seed reusable patient insurance profiles for demo claims
+        profile_result = await session.execute(select(PatientInsuranceProfile).limit(1))
+        if profile_result.scalar_one_or_none() is not None:
+            logger.info("📦 Insurance profiles already seeded — skipping")
+        else:
+            logger.info("🪪 Seeding patient insurance profiles...")
+            for p_data in SAMPLE_PATIENTS[:8]:
+                session.add(
+                    PatientInsuranceProfile(
+                        patient_id=p_data["id"],
+                        insurance_provider=p_data.get("insurance_provider", "default"),
+                        plan_type=p_data.get("plan_type", "general"),
+                        member_id=p_data.get("member_id", ""),
+                        policy_number=f"POL-{p_data['id']}",
+                        group_number=f"GRP-{p_data['id']}",
+                    )
+                )
+            await session.commit()
+            logger.info("✅ Seeded patient insurance profiles")
+
+        # Seed triage records for dashboard/demo history
+        triage_result = await session.execute(select(TriageRecord).limit(1))
+        if triage_result.scalar_one_or_none() is not None:
+            logger.info("📦 Triage records already seeded — skipping")
+        else:
+            logger.info("🩺 Seeding triage records...")
+            triage_rows = [
+                (101, 88.0, "urgent", "Chest pain", {"bp": "150/95", "hr": 110}, "cardiology_fast_track"),
+                (102, 62.0, "semi-urgent", "Migraine", {"bp": "130/85", "hr": 88}, "neurology_consult"),
+                (109, 96.0, "critical", "Sepsis signs", {"bp": "85/50", "hr": 132, "spo2": 89}, "icu_emergency"),
+                (104, 55.0, "semi-urgent", "Abdominal pain", {"bp": "125/80", "hr": 92}, "general_observation"),
+            ]
+            for patient_id, score, urgency, complaint, vitals, pathway in triage_rows:
+                session.add(
+                    TriageRecord(
+                        patient_id=patient_id,
+                        score=score,
+                        urgency_level=urgency,
+                        chief_complaint=complaint,
+                        vitals=vitals,
+                        pathway_recommendation=pathway,
+                        assessed_by="seed_system",
+                    )
+                )
+            await session.commit()
+            logger.info("✅ Seeded triage records")
+
+        # Build doctor map for slot/appointment seeding
+        doctors_result = await session.execute(select(Doctor))
+        doctors = doctors_result.scalars().all()
+        dept_doctor = {}
+        for d in doctors:
+            dept = (d.department or "").strip().lower()
+            if dept and dept not in dept_doctor:
+                dept_doctor[dept] = d
+
+        # Seed availability slots
+        slot_result = await session.execute(select(DoctorAvailabilitySlot).limit(1))
+        if slot_result.scalar_one_or_none() is not None:
+            logger.info("📦 Doctor availability slots already seeded — skipping")
+        else:
+            logger.info("🗓️ Seeding doctor availability slots...")
+            now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+            slot_rows = []
+            for offset_days in range(0, 4):
+                day_base = now + timedelta(days=offset_days)
+                for dept in ["cardiology", "neurology", "orthopedics", "general", "oncology", "pulmonology", "icu"]:
+                    doc = dept_doctor.get(dept)
+                    if not doc:
+                        continue
+                    for hour in [9, 10, 11, 14, 15]:
+                        slot_start = day_base.replace(hour=hour)
+                        slot_end = slot_start + timedelta(minutes=30)
+                        slot_rows.append(
+                            DoctorAvailabilitySlot(
+                                doctor_id=doc.id,
+                                department=dept,
+                                slot_start=slot_start,
+                                slot_end=slot_end,
+                                is_booked=False,
+                            )
+                        )
+            session.add_all(slot_rows)
+            await session.commit()
+            logger.info(f"✅ Seeded {len(slot_rows)} availability slots")
+
+        # Seed appointments using earliest available slots per patient department
+        appt_result = await session.execute(select(Appointment).limit(1))
+        if appt_result.scalar_one_or_none() is not None:
+            logger.info("📦 Appointments already seeded — skipping")
+        else:
+            logger.info("🧾 Seeding appointments...")
+            appointments_created = 0
+            patients_result = await session.execute(select(Patient).order_by(Patient.id.asc()))
+            patients = patients_result.scalars().all()
+
+            status_cycle = ["confirmed", "completed", "cancelled", "confirmed", "completed"]
+            for idx, patient in enumerate(patients[:8]):
+                dept = (patient.department or "general").strip().lower()
+                doc = dept_doctor.get(dept) or next(iter(dept_doctor.values()), None)
+                if not doc:
+                    continue
+
+                slot_query = await session.execute(
+                    select(DoctorAvailabilitySlot)
+                    .where(
+                        DoctorAvailabilitySlot.doctor_id == doc.id,
+                        DoctorAvailabilitySlot.is_booked.is_(False),
+                    )
+                    .order_by(DoctorAvailabilitySlot.slot_start.asc())
+                )
+                slot = slot_query.scalars().first()
+                if not slot:
+                    continue
+
+                slot.is_booked = True
+                slot.booked_patient_id = patient.id
+
+                status_value = status_cycle[idx % len(status_cycle)]
+                appt = Appointment(
+                    patient_id=patient.id,
+                    doctor_id=doc.id,
+                    department=dept,
+                    slot_id=slot.id,
+                    appointment_start=slot.slot_start,
+                    appointment_end=slot.slot_end,
+                    status=status_value,
+                    notes=f"Demo appointment for {patient.name}",
+                    confirmation_code=f"CONF-{patient.id}-{slot.id}",
+                )
+                session.add(appt)
+                appointments_created += 1
+
+            await session.commit()
+            logger.info(f"✅ Seeded {appointments_created} appointments")
+
+        # Seed lab orders with mixed statuses
+        lab_result = await session.execute(select(LabOrder).limit(1))
+        if lab_result.scalar_one_or_none() is not None:
+            logger.info("📦 Lab orders already seeded — skipping")
+        else:
+            logger.info("🧪 Seeding lab orders...")
+            lab_rows = [
+                LabOrder(patient_id=101, test_name="Troponin", ordered_by="Dr. Amanda Hart", status="resulted", priority="urgent", result={"finding": "elevated", "value": "1.2 ng/mL"}, is_critical=False),
+                LabOrder(patient_id=102, test_name="MRI Brain", ordered_by="Dr. Sarah Kim", status="in_lab", priority="routine", result=None, is_critical=False),
+                LabOrder(patient_id=109, test_name="Blood Culture", ordered_by="Dr. Kevin Chen", status="critical", priority="stat", result={"finding": "sepsis marker high"}, is_critical=True),
+                LabOrder(patient_id=104, test_name="CBC", ordered_by="Dr. Jennifer Liu", status="sample_collected", priority="urgent", result=None, is_critical=False),
+            ]
+            session.add_all(lab_rows)
+            await session.commit()
+            logger.info("✅ Seeded lab orders")
+
+        # Seed billing cases and linked claims
+        billing_result = await session.execute(select(BillingCase).limit(1))
+        if billing_result.scalar_one_or_none() is not None:
+            logger.info("📦 Billing cases already seeded — skipping")
+        else:
+            logger.info("💼 Seeding billing cases and insurance claims...")
+            billing_rows = [
+                BillingCase(patient_id=101, status="open", services=[{"service": "admission", "amount": 5000}, {"service": "doctor_consult", "amount": 2000}], estimated_total=7000.0, invoice_number="INV-101"),
+                BillingCase(patient_id=102, status="submitted", services=[{"service": "lab_cbc", "amount": 800}, {"service": "doctor_consult", "amount": 2000}], estimated_total=2800.0, invoice_number="INV-102"),
+                BillingCase(patient_id=109, status="invoiced", services=[{"service": "icu_day", "amount": 15000}, {"service": "lab_metabolic", "amount": 1200}], estimated_total=16200.0, invoice_number="INV-109"),
+                BillingCase(patient_id=104, status="paid", services=[{"service": "general_day", "amount": 5000}, {"service": "medication", "amount": 500}], estimated_total=5500.0, invoice_number="INV-104"),
+            ]
+            session.add_all(billing_rows)
+            await session.flush()
+
+            claim_rows = [
+                InsuranceClaim(patient_id=102, billing_case_id=billing_rows[1].id, insurance_provider="Aetna", plan_type="standard", member_id="AE-102-2024", status="submitted", claim_amount=2800.0, approved_amount=0.0, eligibility_verified=True),
+                InsuranceClaim(patient_id=109, billing_case_id=billing_rows[2].id, insurance_provider="Medicare", plan_type="senior", member_id="MC-109-2024", status="approved", claim_amount=16200.0, approved_amount=12000.0, eligibility_verified=True),
+                InsuranceClaim(patient_id=104, billing_case_id=billing_rows[3].id, insurance_provider="Cigna", plan_type="standard", member_id="CI-104-2024", status="paid", claim_amount=5500.0, approved_amount=4800.0, eligibility_verified=True),
+                InsuranceClaim(patient_id=101, billing_case_id=billing_rows[0].id, insurance_provider="BlueCross", plan_type="premium", member_id="BC-101-2024", status="pending", claim_amount=7000.0, approved_amount=0.0, eligibility_verified=False),
+            ]
+            session.add_all(claim_rows)
+            await session.flush()
+
+            # Link billing cases to their claims where available
+            claim_map = {c.billing_case_id: c.id for c in claim_rows if c.billing_case_id}
+            for case in billing_rows:
+                if case.id in claim_map:
+                    case.insurance_claim_id = claim_map[case.id]
+
+            await session.commit()
+            logger.info("✅ Seeded billing and insurance claims")
+
+        # Seed notifications for dashboard visibility
+        notif_result = await session.execute(select(Notification).limit(1))
+        if notif_result.scalar_one_or_none() is not None:
+            logger.info("📦 Notifications already seeded — skipping")
+        else:
+            logger.info("🔔 Seeding notifications...")
+            notifications = [
+                Notification(message="Patient 101 admitted and assigned to cardiology care team.", recipient="nursing_station", channel="system", status="sent"),
+                Notification(message="Critical lab result for patient 109. Immediate review required.", recipient="attending_physician", channel="system", status="sent"),
+                Notification(message="Insurance claim #2 approved for patient 109.", recipient="billing_department", channel="system", status="sent"),
+                Notification(message="Appointment reminder: patient 102 at 10:00 AM.", recipient="patient_102", channel="system", status="sent"),
+            ]
+            session.add_all(notifications)
+            await session.commit()
+            logger.info("✅ Seeded notifications")
+
+        # Seed execution logs to showcase timeline/audit pages
+        exec_result = await session.execute(select(ExecutionRecord).limit(1))
+        if exec_result.scalar_one_or_none() is not None:
+            logger.info("📦 Execution logs already seeded — skipping")
+        else:
+            logger.info("🧠 Seeding execution logs...")
+            now = datetime.utcnow()
+            records = [
+                ExecutionRecord(
+                    execution_id=f"seed-exec-admit-{int(now.timestamp())}",
+                    plan_id="seed-plan-admit",
+                    event="patient_admitted",
+                    status="completed",
+                    log_data=_build_execution_log("patient_admitted", "SupervisorAgent", "supervise_admission", "completed"),
+                    started_at=now - timedelta(minutes=30),
+                    completed_at=now - timedelta(minutes=29, seconds=55),
+                    total_duration_ms=5000.0,
+                ),
+                ExecutionRecord(
+                    execution_id=f"seed-exec-lab-{int(now.timestamp())}",
+                    plan_id="seed-plan-lab",
+                    event="lab_results_ready",
+                    status="completed",
+                    log_data=_build_execution_log("lab_results_ready", "LabAgent", "check_lab_results", "completed"),
+                    started_at=now - timedelta(minutes=20),
+                    completed_at=now - timedelta(minutes=19, seconds=56),
+                    total_duration_ms=4000.0,
+                ),
+                ExecutionRecord(
+                    execution_id=f"seed-exec-doctor-{int(now.timestamp())}",
+                    plan_id="seed-plan-doctor-followup",
+                    event="doctor_followup_workflow",
+                    status="completed",
+                    log_data=_build_execution_log("doctor_followup_workflow", "SupervisorAgent", "coordinate_multi_domain", "completed"),
+                    started_at=now - timedelta(minutes=10),
+                    completed_at=now - timedelta(minutes=9, seconds=53),
+                    total_duration_ms=7000.0,
+                ),
+            ]
+            session.add_all(records)
+            await session.commit()
+            logger.info("✅ Seeded execution logs")
 
 
 # Allow running standalone

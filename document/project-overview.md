@@ -55,7 +55,7 @@ Later steps consume that context (for example alert messages use patient data an
 - **ASGI server:** Uvicorn
 - **Validation/models:** Pydantic v2
 - **Database layer:** SQLAlchemy async
-- **Database:** PostgreSQL (via Docker Compose)
+- **Database:** PostgreSQL (Neon / external via `.env`)
 - **Frontend:** Static HTML/CSS/JS served by FastAPI
 
 ## Runtime at a glance

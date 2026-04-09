@@ -2,10 +2,10 @@
 
 ## Base URL
 
-By default (Docker):
+By default (Docker app container):
 
 - API + dashboard: `http://localhost:8000`
-- Postgres exposed on host: `localhost:5433`
+- Database: external PostgreSQL (Neon) from `hospital-agent-system/.env`
 
 ## Endpoints
 

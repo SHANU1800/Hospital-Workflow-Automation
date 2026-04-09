@@ -12,8 +12,8 @@ Expected files already present:
 
 Start stack:
 
-- Postgres service (`db`)
 - FastAPI service (`app`)
+- External PostgreSQL (Neon) configured via `.env`
 
 When app starts:
 
@@ -31,10 +31,11 @@ From `.env`:
 - `LOG_LEVEL`
 
 Default compose network DB host is `db`.
+No local DB container is used.
 
 ## Local Python run (without Docker)
 
-You can run directly if PostgreSQL is available and `DATABASE_URL` points to a reachable instance.
+You can run directly if `DATABASE_URL` points to a reachable PostgreSQL instance (Neon recommended).
 
 Minimal dependency set is defined in `requirements.txt`.
 
@@ -92,5 +93,6 @@ Current startup seed includes:
 
 - 8 sample patients (`ID 101–108`)
 - 10 sample doctors across departments
+- user↔doctor mapping for doctor dashboard auto ID loading
 
 Useful for demos and dashboard quick actions.

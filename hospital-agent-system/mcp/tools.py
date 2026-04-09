@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import random
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select, update
 
@@ -52,6 +52,8 @@ from models.database import (
     InsuranceClaim,
     ChargeCode,
     InsuranceEligibilityRule,
+    Appointment,
+    DoctorAvailabilitySlot,
 )
 from mcp.tool_registry import register_tool
 
@@ -1228,4 +1230,315 @@ async def attach_lab_report(order_id: int, report_url: str) -> dict:
         "report_url": report_url,
         "test_name": order.test_name,
         "patient_id": order.patient_id,
+    }
+
+
+# ═══════════════════════════════════════════════════════
+# SECTION 6 — APPOINTMENT & SCHEDULING TOOLS (7)
+# ═══════════════════════════════════════════════════════
+
+def _department_from_symptoms(symptoms: str, urgency_level: str) -> tuple[str, str]:
+    """Simple rule-based department suggestion from symptom text."""
+    text = (symptoms or "").lower()
+
+    keyword_map = [
+        ("cardiology", ["chest pain", "palpitation", "heart", "cardiac", "pressure chest"]),
+        ("neurology", ["headache", "migraine", "seizure", "stroke", "dizziness", "numbness"]),
+        ("pulmonology", ["shortness of breath", "breath", "cough", "wheezing", "asthma"]),
+        ("orthopedics", ["fracture", "bone", "joint", "sprain", "back pain", "knee"]),
+        ("oncology", ["tumor", "cancer", "chemotherapy", "oncology"]),
+        ("icu", ["unconscious", "not breathing", "collapse", "septic", "critical"]),
+    ]
+
+    for department, keywords in keyword_map:
+        if any(keyword in text for keyword in keywords):
+            return (
+                department,
+                f"Symptoms matched {department.title()} keyword profile.",
+            )
+
+    if urgency_level == "critical":
+        return "icu", "Urgency level is critical, recommending ICU fast-track."
+
+    return "general", "No specialty keyword matched; routing to General Medicine."
+
+
+@register_tool(
+    name="recommend_department_from_symptoms",
+    description="Suggest the most appropriate department from symptom text and urgency",
+    parameters={
+        "symptoms": "String - patient-reported symptoms",
+        "urgency_level": "String - urgency level from triage score",
+    },
+)
+async def recommend_department_from_symptoms(symptoms: str, urgency_level: str = "non-urgent") -> dict:
+    """Return department recommendation and explanation from symptom narrative."""
+    department, explanation = _department_from_symptoms(symptoms=symptoms, urgency_level=urgency_level)
+    return {
+        "recommended_department": department,
+        "explanation": explanation,
+        "urgency_level": urgency_level,
+    }
+
+
+@register_tool(
+    name="list_available_doctors",
+    description="List currently available doctors in a department",
+    parameters={"department": "String - medical department"},
+)
+async def list_available_doctors(department: str) -> dict:
+    """Return department doctors with availability flag (available first)."""
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(Doctor).where(
+                Doctor.department == department.lower().strip(),
+            )
+        )
+        doctors = result.scalars().all()
+
+    doctors_sorted = sorted(doctors, key=lambda d: d.available, reverse=True)
+
+    return {
+        "department": department.lower().strip(),
+        "doctors": [doctor.to_dict() for doctor in doctors_sorted],
+        "count": len(doctors_sorted),
+    }
+
+
+@register_tool(
+    name="get_doctor_slots",
+    description="Get fixed 30-minute slots for a doctor and date, auto-generating if missing",
+    parameters={
+        "doctor_id": "Integer - doctor ID",
+        "date": "String - date in YYYY-MM-DD",
+    },
+)
+async def get_doctor_slots(doctor_id: int, date: str) -> dict:
+    """Return unbooked 30-minute appointment slots for a doctor on a given date."""
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError("Invalid date format. Expected YYYY-MM-DD") from exc
+
+    day_start = datetime.combine(target_date, datetime.min.time()).replace(hour=9, minute=0, second=0, microsecond=0)
+    day_end = datetime.combine(target_date, datetime.min.time()).replace(hour=17, minute=0, second=0, microsecond=0)
+
+    async with async_session_factory() as session:
+        doctor_result = await session.execute(select(Doctor).where(Doctor.id == doctor_id))
+        doctor = doctor_result.scalar_one_or_none()
+        if doctor is None:
+            return {"error": f"Doctor {doctor_id} not found", "slots": []}
+
+        existing_result = await session.execute(
+            select(DoctorAvailabilitySlot).where(
+                DoctorAvailabilitySlot.doctor_id == doctor_id,
+                DoctorAvailabilitySlot.slot_start >= day_start,
+                DoctorAvailabilitySlot.slot_start < day_end,
+            )
+        )
+        existing_slots = existing_result.scalars().all()
+
+        if not existing_slots:
+            slots_to_create = []
+            cursor = day_start
+            while cursor < day_end:
+                next_cursor = cursor + timedelta(minutes=30)
+                if cursor >= datetime.utcnow():
+                    slots_to_create.append(
+                        DoctorAvailabilitySlot(
+                            doctor_id=doctor_id,
+                            department=doctor.department,
+                            slot_start=cursor,
+                            slot_end=next_cursor,
+                            is_booked=False,
+                        )
+                    )
+                cursor = next_cursor
+
+            if slots_to_create:
+                session.add_all(slots_to_create)
+                await session.commit()
+
+            existing_result = await session.execute(
+                select(DoctorAvailabilitySlot).where(
+                    DoctorAvailabilitySlot.doctor_id == doctor_id,
+                    DoctorAvailabilitySlot.slot_start >= day_start,
+                    DoctorAvailabilitySlot.slot_start < day_end,
+                )
+            )
+            existing_slots = existing_result.scalars().all()
+
+    available_slots = [
+        slot.to_dict()
+        for slot in existing_slots
+        if not slot.is_booked and slot.slot_start >= datetime.utcnow()
+    ]
+
+    return {
+        "doctor_id": doctor_id,
+        "date": date,
+        "department": doctor.department,
+        "slots": available_slots,
+        "count": len(available_slots),
+    }
+
+
+@register_tool(
+    name="book_appointment",
+    description="Book an appointment against an available doctor slot",
+    parameters={
+        "patient_id": "Integer - patient ID",
+        "doctor_id": "Integer - doctor ID",
+        "slot_id": "Integer - slot ID from get_doctor_slots",
+        "symptoms": "String - optional symptom summary",
+    },
+)
+async def book_appointment(patient_id: int, doctor_id: int, slot_id: int, symptoms: str = "") -> dict:
+    """Book appointment if slot is still available; marks slot as booked and creates appointment."""
+    async with async_session_factory() as session:
+        patient_result = await session.execute(select(Patient).where(Patient.id == patient_id))
+        patient = patient_result.scalar_one_or_none()
+        if patient is None:
+            return {"error": f"Patient {patient_id} not found", "booked": False}
+
+        doctor_result = await session.execute(select(Doctor).where(Doctor.id == doctor_id))
+        doctor = doctor_result.scalar_one_or_none()
+        if doctor is None:
+            return {"error": f"Doctor {doctor_id} not found", "booked": False}
+
+        slot_result = await session.execute(
+            select(DoctorAvailabilitySlot)
+            .where(
+                DoctorAvailabilitySlot.id == slot_id,
+                DoctorAvailabilitySlot.doctor_id == doctor_id,
+            )
+            .with_for_update()
+        )
+        slot = slot_result.scalar_one_or_none()
+        if slot is None:
+            return {"error": f"Slot {slot_id} not found for doctor {doctor_id}", "booked": False}
+
+        if slot.is_booked:
+            return {"error": "Selected slot is already booked", "booked": False}
+
+        confirmation_code = f"APT-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+        appointment = Appointment(
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            department=doctor.department,
+            slot_id=slot.id,
+            appointment_start=slot.slot_start,
+            appointment_end=slot.slot_end,
+            status="confirmed",
+            notes=(symptoms or "").strip() or None,
+            confirmation_code=confirmation_code,
+        )
+
+        slot.is_booked = True
+        slot.booked_patient_id = patient_id
+        session.add(appointment)
+        await session.commit()
+        await session.refresh(appointment)
+
+    return {
+        "booked": True,
+        "appointment": appointment.to_dict(),
+    }
+
+
+@register_tool(
+    name="get_appointment_details",
+    description="Fetch a single appointment by ID",
+    parameters={"appointment_id": "Integer - appointment ID"},
+)
+async def get_appointment_details(appointment_id: int) -> dict:
+    """Return appointment details by appointment ID."""
+    async with async_session_factory() as session:
+        result = await session.execute(select(Appointment).where(Appointment.id == appointment_id))
+        appointment = result.scalar_one_or_none()
+        if appointment is None:
+            return {"error": f"Appointment {appointment_id} not found"}
+        return appointment.to_dict()
+
+
+@register_tool(
+    name="list_doctor_appointments",
+    description="List all appointments for a doctor, optionally filtered by date",
+    parameters={
+        "doctor_id": "Integer - doctor ID",
+        "date": "String - optional date filter YYYY-MM-DD",
+    },
+)
+async def list_doctor_appointments(doctor_id: int, date: str = "") -> dict:
+    """Return appointment list for doctor dashboard views."""
+    async with async_session_factory() as session:
+        query = select(Appointment).where(Appointment.doctor_id == doctor_id)
+        if date:
+            try:
+                target_date = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError as exc:
+                raise ValueError("Invalid date format. Expected YYYY-MM-DD") from exc
+
+            start = datetime.combine(target_date, datetime.min.time())
+            end = start + timedelta(days=1)
+            query = query.where(
+                Appointment.appointment_start >= start,
+                Appointment.appointment_start < end,
+            )
+
+        query = query.order_by(Appointment.appointment_start.asc())
+        result = await session.execute(query)
+        appointments = result.scalars().all()
+
+    return {
+        "doctor_id": doctor_id,
+        "appointments": [a.to_dict() for a in appointments],
+        "count": len(appointments),
+    }
+
+
+@register_tool(
+    name="update_appointment",
+    description="Update doctor-facing appointment fields (status and notes)",
+    parameters={
+        "appointment_id": "Integer - appointment ID",
+        "status": "String - optional status update (confirmed/completed/cancelled)",
+        "notes": "String - optional notes",
+    },
+)
+async def update_appointment(appointment_id: int, status: str = "", notes: str = "") -> dict:
+    """Update appointment status and/or notes from doctor dashboard actions."""
+    allowed_status = {"confirmed", "completed", "cancelled"}
+    update_payload = {}
+    if status:
+        normalized = status.lower().strip()
+        if normalized not in allowed_status:
+            return {"error": f"Invalid status '{status}'", "updated": False}
+        update_payload["status"] = normalized
+
+    if notes:
+        update_payload["notes"] = notes
+
+    if not update_payload:
+        return {"error": "No update fields provided", "updated": False}
+
+    async with async_session_factory() as session:
+        result = await session.execute(select(Appointment).where(Appointment.id == appointment_id))
+        appointment = result.scalar_one_or_none()
+        if appointment is None:
+            return {"error": f"Appointment {appointment_id} not found", "updated": False}
+
+        await session.execute(
+            update(Appointment)
+            .where(Appointment.id == appointment_id)
+            .values(**update_payload)
+        )
+        await session.commit()
+
+        refreshed = await session.execute(select(Appointment).where(Appointment.id == appointment_id))
+        appointment = refreshed.scalar_one_or_none()
+
+    return {
+        "updated": True,
+        "appointment": appointment.to_dict() if appointment else None,
     }
