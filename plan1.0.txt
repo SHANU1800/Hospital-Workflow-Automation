@@ -1,0 +1,394 @@
+Love this direction — your architecture is *perfect* for scaling into many specialized sub-agents.  
+You can turn this into a full hospital operations mesh very naturally.
+
+## High-value agents you can add next (practical first wave)
+
+1. **TriageAgent** — severity scoring, queue priority, urgency flags  
+2. **BedManagementAgent** — bed allocation, transfer suggestions, occupancy balancing  
+3. **BillingAgent** — billing event initiation, package mapping, discharge bill prep  
+4. **InsuranceAgent** — eligibility checks, pre-auth workflow, claim packet generation  
+5. **LabAgent** — lab order orchestration, sample lifecycle tracking, critical result escalation  
+6. **PharmacyAgent** — medication availability, substitution suggestions, dispense workflow  
+7. **RadiologyAgent** — imaging slot booking, prep instructions, report tracking  
+8. **NurseCoordinationAgent** — nursing station workload, rounds scheduling, handoff reminders  
+9. **DischargePlannerAgent** — checklist completion, follow-up scheduling, discharge readiness score  
+10. **EscalationAgent** — failures/timeouts → rapid escalation to correct team
+
+## Clinical workflow sub-agents
+
+- **VitalsMonitoringAgent** — abnormal trend detection from vitals streams  
+- **SepsisEarlyWarningAgent** — rule-based sepsis trigger alerts  
+- **CriticalCareAgent** — ICU admission/transfer coordination  
+- **InfectionControlAgent** — isolation requirement and protocol checks  
+- **CarePathwayAgent** — pathway-specific task plans (cardiac, neuro, oncology)  
+- **ConsultationAgent** — specialist consult routing and SLA tracking  
+- **ProcedureCoordinationAgent** — pre-op readiness and procedure sequencing  
+- **MedicationSafetyAgent** — interaction/allergy checks before administration
+
+## Operations and logistics sub-agents
+
+- **TransportAgent** — patient movement scheduling (ward ↔ lab/radiology/OT)  
+- **EquipmentAgent** — device availability (ventilator, monitor, pump)  
+- **HousekeepingAgent** — room cleaning turnaround after discharge/transfer  
+- **DietaryAgent** — diet order routing and meal exception handling  
+- **QueueOptimizationAgent** — waiting room and service queue balancing  
+- **StaffingAgent** — shift load balancing and shortage alerts  
+- **SLAAgent** — tracks turnaround SLAs for each workflow step
+
+## Revenue cycle and admin sub-agents
+
+- **CodingAgent** — ICD/CPT suggestion support from chart context  
+- **PriorAuthorizationAgent** — prior-auth request generation and follow-up  
+- **ClaimsAgent** — claim creation, validation, and submission state machine  
+- **PaymentFollowupAgent** — pending payment reminders/worklists  
+- **DocumentAgent** — required forms checklist + missing-doc reminders  
+- **ConsentAgent** — consent form workflow + expiry/revocation checks
+
+## Patient experience and communication agents
+
+- **PatientCommunicationAgent** — SMS/WhatsApp/email updates to patient/family  
+- **AppointmentAgent** — outpatient follow-up and rescheduling logic  
+- **InterpreterAgent** — language support routing  
+- **FeedbackAgent** — post-visit feedback collection and sentiment tagging  
+- **EducationAgent** — diagnosis-specific discharge instructions delivery
+
+## Compliance, risk, and quality agents
+
+- **AuditTrailAgent** — immutable compliance-ready event log normalization  
+- **PrivacyComplianceAgent** — PHI masking and access policy checks  
+- **ClinicalQualityAgent** — quality KPI checks and variance alerts  
+- **IncidentReportingAgent** — adverse event capture and escalation  
+- **PolicyEnforcementAgent** — ensures workflow steps satisfy hospital policy constraints
+
+## Intelligence / optimization agents
+
+- **ForecastingAgent** — admission surge forecasting, occupancy prediction  
+- **ReadmissionRiskAgent** — risk score + intervention recommendation  
+- **NoShowRiskAgent** — outpatient no-show prediction  
+- **ResourceOptimizationAgent** — cross-department capacity optimization  
+- **DecisionSupportAgent** — recommendation synthesis from multiple agents
+
+## Integration-focused agents
+
+- **EHRSyncAgent** — bi-directional sync with EHR/EMR  
+- **HL7FHIRAgent** — standardized healthcare message translation  
+- **ThirdPartyLabBridgeAgent** — external lab system bridge  
+- **PACSBridgeAgent** — imaging archive/report integration  
+- **ERPFinanceBridgeAgent** — billing/claims sync to finance stack
+
+## How to keep it manageable as you scale
+
+- Give each new agent **1–3 tight capabilities** only (avoid “god agents”).  
+- Add workflows via planner rules (`event_pattern`) rather than hardcoding endpoints.  
+- Keep all external access behind MCP tools (great boundary you already have).  
+- Add a **Supervisor/MetaAgent** later to coordinate complex multi-agent plans.
+
+---
+
+If you want, I can give you a **recommended roadmap of 15 agents in 3 phases** (MVP → operational maturity → advanced intelligence) tailored exactly to your current codebase.
+
+
+Perfect — if you’re going **all-in**, then your MCP layer should become a full hospital “service bus.”  
+Here’s a comprehensive MCP tool catalog that can support the full agent mesh you agreed to.
+
+## MCP design rules before adding 100+ tools
+
+- Keep tool names **verb_noun** (`assign_bed`, `create_claim`, `send_notification`).
+- Every tool should return a standard envelope:
+  - `success`, `error`, `data`, `meta` (trace_id, latency_ms, source)
+- Add idempotency where needed (`idempotency_key`) for retries.
+- Tag tools by domain (`clinical`, `ops`, `finance`, `compliance`, `integration`).
+- Keep agents thin; tools do heavy system interaction.
+
+---
+
+## 1) Core platform MCP tools (use across all agents)
+
+1. `get_patient_profile`
+2. `get_patient_encounter`
+3. `update_patient_status`
+4. `create_task_ticket`
+5. `update_task_ticket`
+6. `list_pending_tasks`
+7. `publish_event`
+8. `subscribe_event` (if async bus)
+9. `get_workflow_state`
+10. `update_workflow_state`
+11. `append_audit_log`
+12. `get_audit_trail`
+13. `send_notification`
+14. `send_multichannel_message`
+15. `resolve_identity` (patient/staff/provider IDs)
+16. `check_policy_rule`
+17. `mask_phi_payload`
+18. `validate_payload_schema`
+19. `fetch_reference_data` (departments, codes, tariff tables)
+20. `health_check_dependency`
+
+---
+
+## 2) Triage + emergency tools
+
+1. `calculate_triage_score`
+2. `classify_emergency_level`
+3. `prioritize_waitlist`
+4. `assign_triage_queue`
+5. `flag_critical_case`
+6. `start_code_blue_protocol`
+7. `notify_rapid_response_team`
+8. `record_triage_assessment`
+9. `get_triage_history`
+10. `recommend_triage_pathway`
+
+---
+
+## 3) Bed management + flow tools
+
+1. `get_bed_inventory`
+2. `find_best_bed_match`
+3. `reserve_bed`
+4. `assign_bed`
+5. `release_bed`
+6. `request_bed_transfer`
+7. `optimize_bed_allocation`
+8. `get_occupancy_snapshot`
+9. `predict_bed_turnover`
+10. `mark_bed_cleaning_required`
+11. `mark_bed_ready`
+12. `track_patient_location`
+
+---
+
+## 4) Scheduling + staffing tools
+
+1. `assign_doctor`
+2. `check_doctor_availability`
+3. `schedule_consultation`
+4. `reschedule_consultation`
+5. `get_shift_roster`
+6. `rebalance_staff_workload`
+7. `find_on_call_staff`
+8. `create_rounding_plan`
+9. `record_handoff_note`
+10. `escalate_staff_shortage`
+
+---
+
+## 5) Lab tools
+
+1. `create_lab_order`
+2. `collect_sample`
+3. `track_sample_status`
+4. `dispatch_sample_to_lab`
+5. `get_lab_result`
+6. `flag_critical_lab_result`
+7. `notify_lab_delay`
+8. `cancel_lab_order`
+9. `repeat_lab_test`
+10. `attach_lab_report`
+
+---
+
+## 6) Radiology tools
+
+1. `create_imaging_order`
+2. `schedule_imaging_slot`
+3. `get_imaging_preparation_instructions`
+4. `track_imaging_status`
+5. `fetch_radiology_report`
+6. `flag_critical_radiology_finding`
+7. `reschedule_imaging`
+8. `cancel_imaging_order`
+9. `route_report_to_physician`
+10. `archive_image_reference`
+
+---
+
+## 7) Pharmacy + medication safety tools
+
+1. `create_medication_order`
+2. `validate_drug_allergy_interaction`
+3. `check_drug_inventory`
+4. `suggest_drug_substitution`
+5. `approve_medication_dispense`
+6. `record_medication_administration`
+7. `schedule_medication_dose`
+8. `flag_medication_contraindication`
+9. `reconcile_medications_on_discharge`
+10. `report_adverse_drug_event`
+
+---
+
+## 8) Procedure + OT tools
+
+1. `create_procedure_request`
+2. `verify_preop_checklist`
+3. `reserve_operation_theater`
+4. `schedule_procedure`
+5. `track_procedure_progress`
+6. `record_postop_notes`
+7. `request_anesthesia_clearance`
+8. `cancel_procedure`
+9. `reschedule_procedure`
+10. `handoff_to_recovery_unit`
+
+---
+
+## 9) Discharge + follow-up tools
+
+1. `evaluate_discharge_readiness`
+2. `generate_discharge_checklist`
+3. `create_discharge_summary`
+4. `reconcile_discharge_medications`
+5. `schedule_followup_appointment`
+6. `generate_home_care_instructions`
+7. `notify_caregiver`
+8. `close_encounter`
+9. `trigger_post_discharge_call`
+10. `assess_readmission_risk`
+
+---
+
+## 10) Billing + coding + claims tools
+
+1. `initiate_billing_case`
+2. `map_services_to_charge_codes`
+3. `calculate_estimated_bill`
+4. `apply_insurance_plan_rules`
+5. `generate_itemized_invoice`
+6. `validate_icd_cpt_codes`
+7. `create_claim`
+8. `validate_claim`
+9. `submit_claim`
+10. `track_claim_status`
+11. `handle_claim_rejection`
+12. `post_payment`
+13. `generate_patient_due_notice`
+14. `close_billing_case`
+
+---
+
+## 11) Insurance + prior auth tools
+
+1. `verify_insurance_eligibility`
+2. `fetch_plan_benefits`
+3. `check_coverage_for_procedure`
+4. `create_prior_auth_request`
+5. `submit_prior_auth`
+6. `track_prior_auth_status`
+7. `escalate_prior_auth_delay`
+8. `attach_supporting_documents`
+9. `record_authorization_number`
+10. `validate_precert_requirements`
+
+---
+
+## 12) Patient communication tools
+
+1. `send_patient_update_sms`
+2. `send_patient_update_email`
+3. `send_family_notification`
+4. `send_appointment_reminder`
+5. `collect_patient_feedback`
+6. `deliver_patient_education_content`
+7. `request_consent_signature`
+8. `get_preferred_language`
+9. `route_to_interpreter_service`
+10. `log_communication_event`
+
+---
+
+## 13) Transport + logistics tools
+
+1. `request_patient_transport`
+2. `assign_transport_staff`
+3. `track_transport_eta`
+4. `confirm_patient_pickup`
+5. `confirm_patient_dropoff`
+6. `request_equipment_delivery`
+7. `check_equipment_availability`
+8. `reserve_equipment`
+9. `release_equipment`
+10. `notify_transport_delay`
+
+---
+
+## 14) Infection control + quality + compliance tools
+
+1. `evaluate_isolation_requirement`
+2. `assign_isolation_room`
+3. `record_hai_screening`
+4. `flag_infection_risk`
+5. `report_clinical_incident`
+6. `run_quality_measure_check`
+7. `detect_policy_violation`
+8. `create_compliance_case`
+9. `export_compliance_audit_bundle`
+10. `enforce_data_retention_policy`
+
+---
+
+## 15) Forecasting + optimization tools
+
+1. `forecast_admission_volume`
+2. `predict_length_of_stay`
+3. `predict_readmission_risk`
+4. `predict_no_show_risk`
+5. `optimize_staffing_plan`
+6. `optimize_resource_allocation`
+7. `detect_bottleneck_stage`
+8. `recommend_capacity_action`
+9. `simulate_surge_scenario`
+10. `generate_operational_kpi_snapshot`
+
+---
+
+## 16) External integration tools (EHR/FHIR/HL7/PACS/ERP)
+
+1. `push_patient_to_ehr`
+2. `pull_patient_from_ehr`
+3. `push_encounter_update_to_ehr`
+4. `map_internal_to_fhir_resource`
+5. `ingest_fhir_resource`
+6. `parse_hl7_message`
+7. `emit_hl7_message`
+8. `sync_lab_results_external`
+9. `sync_radiology_report_external`
+10. `sync_billing_to_erp`
+11. `sync_payment_from_erp`
+12. `reconcile_external_sync_status`
+13. `retry_failed_integration_message`
+14. `archive_integration_payload`
+
+---
+
+## “Everything” build order (so it doesn’t explode 😄)
+
+If you want full scale, ship in this order:
+
+1. **Foundation (20 tools)**: core platform + triage + bed + notifications  
+2. **Clinical (30 tools)**: lab, radiology, pharmacy, procedure, discharge  
+3. **Revenue cycle (25 tools)**: billing, insurance, claims, coding  
+4. **Ops + compliance (25 tools)**: staffing, transport, quality, policy  
+5. **Intelligence + integration (30+ tools)**: forecasting, FHIR/HL7, ERP/PACS
+
+Total target: **~130 tools**.
+
+---
+
+## Strong recommendation for your repo right now
+
+Given your current architecture, the **next 25 MCP tools** should be:
+- triage (5)
+- bed management (6)
+- billing/insurance basics (8)
+- lab critical path (6)
+
+That gives immediate visible complexity without chaos.
+
+If you want, I can produce a **ready-to-implement MCP Tool Spec v1** next:
+- exact tool signatures
+- input/output JSON schemas
+- error codes
+- which agent calls which tool
+- and event-to-tool mapping for planner rules.
