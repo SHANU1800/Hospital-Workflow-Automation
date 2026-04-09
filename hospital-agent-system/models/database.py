@@ -7,7 +7,9 @@ Defines ORM models for persistent data: Patients, Doctors, Notifications, Execut
 
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from datetime import datetime
 from typing import AsyncGenerator
 
@@ -152,10 +154,30 @@ class ExecutionRecord(Base):
 # ─────────────────────────────────────────────
 
 async def init_db():
-    """Create all tables. Called on application startup."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("✅ Database tables created successfully")
+    """Create all tables. Called on application startup.
+    
+    Implements retry logic with exponential backoff to wait for database
+    to be ready, since Docker service health checks don't guarantee that
+    the database is accepting async connections immediately.
+    """
+    max_retries = 10
+    retry_delay = 1  # Start with 1 second
+    
+    for attempt in range(max_retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            print("✅ Database tables created successfully")
+            return
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                print(f"⚠️  Database connection failed (attempt {attempt + 1}/{max_retries}). "
+                      f"Retrying in {wait_time}s... Error: {str(e)[:100]}")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"❌ Failed to connect to database after {max_retries} attempts")
+                raise
 
 
 async def drop_db():
