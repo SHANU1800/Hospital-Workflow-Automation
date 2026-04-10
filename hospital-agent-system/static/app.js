@@ -643,7 +643,7 @@ async function triggerEvent() {
     }
 }
 
-// ─── Render Workflow Result (Timeline) ────────────────
+// ─── Render Workflow Result (Timeline) — Enhanced A2A/MCP ────
 function renderWorkflowResult(prefix, data) {
     const panel = document.getElementById(`${prefix}-result`);
     const statusEl = document.getElementById(`${prefix}-status`);
@@ -664,6 +664,31 @@ function renderWorkflowResult(prefix, data) {
         const toolCalls = step.tool_calls || [];
         const a2aMessages = step.a2a_messages || [];
 
+        // Build MCP Tool Call blocks (enhanced)
+        let mcpHtml = '';
+        toolCalls.forEach(tc => {
+            const toolName = tc.tool || tc.tool_call || 'unknown_tool';
+            const result = tc.result;
+            let resultPreview = '';
+            if (typeof result === 'object' && result !== null) {
+                resultPreview = Object.entries(result)
+                    .filter(([k]) => !['tool_call', 'status'].includes(k))
+                    .slice(0, 4)
+                    .map(([k, v]) => `${formatLabel(k)}: ${String(v).substring(0, 60)}`)
+                    .join(' · ');
+            } else if (result !== undefined) {
+                resultPreview = String(result).substring(0, 120);
+            }
+            mcpHtml += `
+                <div class="timeline-mcp-call">
+                    <div class="mcp-label">
+                        MCP Tool Call → <span class="mcp-tool-name">${escapeHtml(toolName)}</span>
+                    </div>
+                    ${resultPreview ? `<div class="mcp-result">${escapeHtml(resultPreview)}</div>` : ''}
+                </div>`;
+        });
+
+        // Build detail rows from tool results
         let detailsHtml = '';
         toolCalls.forEach(tc => {
             const result = tc.result;
@@ -679,16 +704,17 @@ function renderWorkflowResult(prefix, data) {
             }
         });
 
+        // Build A2A Message blocks (enhanced)
         let a2aHtml = '';
         if (a2aMessages.length > 0) {
             a2aHtml = a2aMessages.map(msg => `
                 <div class="timeline-a2a">
                     <div class="timeline-a2a-label">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                        A2A: ${msg.from_agent} → ${msg.to_agent}
+                        A2A: <span class="a2a-direction">${escapeHtml(msg.from_agent)} → ${escapeHtml(msg.to_agent)}</span>
                     </div>
-                    <div>Request: ${msg.request}</div>
-                    ${msg.response ? `<div>Response: ${JSON.stringify(msg.response).substring(0, 120)}</div>` : ''}
+                    <div style="margin-top:3px;">📤 <strong>Request:</strong> ${escapeHtml(msg.request || '')}</div>
+                    ${msg.response ? `<div style="margin-top:2px;">📥 <strong>Response:</strong> ${escapeHtml(JSON.stringify(msg.response).substring(0, 150))}</div>` : ''}
                 </div>`).join('');
         }
 
@@ -709,6 +735,7 @@ function renderWorkflowResult(prefix, data) {
                         ${detailsHtml}
                         ${step.error ? `<div class="timeline-detail-row"><span class="timeline-detail-label" style="color:var(--accent-danger)">Error</span><span>${escapeHtml(step.error)}</span></div>` : ''}
                     </div>
+                    ${mcpHtml}
                     ${a2aHtml}
                     ${duration ? `<div class="timeline-duration">${getDurationContent(duration)}</div>` : ''}
                 </div>
@@ -1690,6 +1717,7 @@ async function runDoctorMultiAgentWorkflow(appointmentId, patientId) {
 async function loadStaffPatients() {
     const q = (document.getElementById('patients-search')?.value || '').trim();
     const container = document.getElementById('patients-list');
+    const summary = document.getElementById('patients-summary');
     if (!container) return;
 
     try {
@@ -1699,19 +1727,64 @@ async function loadStaffPatients() {
         if (!res.ok) throw new Error(data.detail || 'Failed to load patients');
 
         if (!data.length) {
-            container.innerHTML = '<div class="empty-state"><p>No patients found</p></div>';
+            if (summary) summary.innerHTML = '';
+            container.innerHTML = '<div class="empty-state"><p>No patients found</p><span>Try a different search or add patients.</span></div>';
             return;
         }
 
+        // Summary stats
+        const admittedCount = data.filter(p => p.admitted).length;
+        const withBed = data.filter(p => p.bed_id).length;
+        const depts = [...new Set(data.map(p => (p.department || '').toLowerCase()))].length;
+        if (summary) {
+            summary.innerHTML = `
+                <div class="ops-mini-card"><div class="ops-mini-value">${data.length}</div><div class="ops-mini-label">Total Patients</div></div>
+                <div class="ops-mini-card"><div class="ops-mini-value">${admittedCount}</div><div class="ops-mini-label">Admitted</div></div>
+                <div class="ops-mini-card"><div class="ops-mini-value">${withBed}</div><div class="ops-mini-label">With Bed</div></div>
+                <div class="ops-mini-card"><div class="ops-mini-value">${depts}</div><div class="ops-mini-label">Departments</div></div>
+            `;
+        }
+
+        const getDeptClass = (dept) => {
+            const d = (dept || '').toLowerCase();
+            if (d.includes('cardio')) return 'dept-cardiology';
+            if (d.includes('emerg')) return 'dept-emergency';
+            if (d.includes('neuro')) return 'dept-neurology';
+            if (d.includes('ortho')) return 'dept-orthopedics';
+            if (d.includes('pedia')) return 'dept-pediatrics';
+            if (d.includes('onco')) return 'dept-oncology';
+            if (d.includes('general')) return 'dept-general';
+            return 'dept-default';
+        };
+
+        const getInitials = (name) => {
+            const parts = (name || '?').split(' ');
+            return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name[0].toUpperCase();
+        };
+
         container.innerHTML = data.map(p => `
-            <div class="appointment-panel" style="margin-bottom:10px;">
-                <div><strong>#${p.id} ${escapeHtml(p.name)}</strong> · ${escapeHtml(p.department)} · Age ${p.age}</div>
-                <div>Registration: <strong>Registered</strong></div>
-                <div>Condition: ${escapeHtml(p.condition || '-')}</div>
-                <div>Admitted: <strong>${p.admitted ? 'Yes' : 'No'}</strong> · Bed: ${p.bed_id || '-'}</div>
-                <div class="appointment-actions">
-                    <button class="btn btn-sm btn-ghost" onclick="viewStaffPatientDetail(${p.id})">View Detail</button>
-                    <button class="btn btn-sm btn-ghost" onclick="editStaffPatient(${p.id})">Edit</button>
+            <div class="patient-card-premium">
+                <div class="patient-card-top">
+                    <div class="patient-avatar ${getDeptClass(p.department)}">${getInitials(p.name)}</div>
+                    <div class="patient-card-info">
+                        <div class="patient-card-name">${escapeHtml(p.name)}</div>
+                        <div class="patient-card-meta">
+                            <span>Age ${p.age || '-'}</span>
+                            <span>${escapeHtml((p.department || 'General').toUpperCase())}</span>
+                        </div>
+                    </div>
+                    <div class="patient-card-id">#${p.id}</div>
+                </div>
+                <div class="patient-card-body">
+                    <div class="patient-card-badges">
+                        <span class="patient-badge ${p.admitted ? 'admitted' : 'not-admitted'}">${p.admitted ? '✓ Admitted' : 'Not Admitted'}</span>
+                        ${p.bed_id ? `<span class="patient-badge has-bed">Bed #${p.bed_id}</span>` : ''}
+                    </div>
+                    ${p.condition ? `<div class="patient-card-condition">Condition: ${escapeHtml(p.condition)}</div>` : ''}
+                </div>
+                <div class="patient-card-actions">
+                    <button class="btn btn-sm btn-ghost" onclick="viewStaffPatientDetail(${p.id})">View Details</button>
+                    <button class="btn btn-sm btn-primary" onclick="editStaffPatient(${p.id})">Edit</button>
                 </div>
             </div>
         `).join('');
@@ -1726,13 +1799,40 @@ async function viewStaffPatientDetail(patientId) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Failed to load patient detail');
 
-        const appts = data.appointments?.length || 0;
-        const bills = data.billing_cases?.length || 0;
-        const claims = data.insurance_claims?.length || 0;
-        showToast(`Patient ${patientId}: ${appts} appointments, ${bills} billing cases, ${claims} claims`, 'info');
+        const patient = data.patient || data;
+        const appts = data.appointments || [];
+        const bills = data.billing_cases || [];
+        const claims = data.insurance_claims || [];
+
+        const modal = document.getElementById('patient-detail-modal');
+        const title = document.getElementById('modal-patient-title');
+        const body = document.getElementById('modal-patient-body');
+
+        title.textContent = `Patient #${patientId} — ${escapeHtml(patient.name || 'Unknown')}`;
+        body.innerHTML = `
+            <div class="modal-detail-grid">
+                <div class="modal-detail-item"><div class="modal-detail-label">Name</div><div class="modal-detail-value">${escapeHtml(patient.name || '-')}</div></div>
+                <div class="modal-detail-item"><div class="modal-detail-label">Age</div><div class="modal-detail-value">${patient.age || '-'}</div></div>
+                <div class="modal-detail-item"><div class="modal-detail-label">Department</div><div class="modal-detail-value">${escapeHtml(patient.department || '-')}</div></div>
+                <div class="modal-detail-item"><div class="modal-detail-label">Condition</div><div class="modal-detail-value">${escapeHtml(patient.condition || '-')}</div></div>
+                <div class="modal-detail-item"><div class="modal-detail-label">Admitted</div><div class="modal-detail-value">${patient.admitted ? 'Yes ✓' : 'No'}</div></div>
+                <div class="modal-detail-item"><div class="modal-detail-label">Bed ID</div><div class="modal-detail-value">${patient.bed_id || 'None'}</div></div>
+            </div>
+            <div style="margin-top:16px; display:flex; gap:12px; flex-wrap:wrap;">
+                <div class="ops-mini-card" style="flex:1;"><div class="ops-mini-value">${appts.length}</div><div class="ops-mini-label">Appointments</div></div>
+                <div class="ops-mini-card" style="flex:1;"><div class="ops-mini-value">${bills.length}</div><div class="ops-mini-label">Billing Cases</div></div>
+                <div class="ops-mini-card" style="flex:1;"><div class="ops-mini-value">${claims.length}</div><div class="ops-mini-label">Insurance Claims</div></div>
+            </div>
+        `;
+        modal.style.display = '';
     } catch (e) {
         showToast(`Error: ${e.message}`, 'error');
     }
+}
+
+function closePatientModal() {
+    const modal = document.getElementById('patient-detail-modal');
+    if (modal) modal.style.display = 'none';
 }
 
 async function editStaffPatient(patientId) {
@@ -1769,6 +1869,7 @@ async function loadStaffBeds() {
     const statusValue = (document.getElementById('beds-status-filter')?.value || '').trim();
     const container = document.getElementById('beds-list');
     const summary = document.getElementById('beds-summary');
+    const occupancyBar = document.getElementById('beds-occupancy-bar');
     if (!container) return;
 
     try {
@@ -1783,57 +1884,75 @@ async function loadStaffBeds() {
 
         if (!data.length) {
             if (summary) summary.innerHTML = '';
-            container.innerHTML = '<div class="empty-state"><p>No beds found</p></div>';
+            if (occupancyBar) occupancyBar.innerHTML = '';
+            container.innerHTML = '<div class="empty-state"><p>No beds found</p><span>Check ward or status filter</span></div>';
             return;
         }
 
+        const total = data.length;
         const availableCount = data.filter(b => String(b.status).toLowerCase() === 'available').length;
         const occupiedCount = data.filter(b => String(b.status).toLowerCase() === 'occupied').length;
         const reservedCount = data.filter(b => String(b.status).toLowerCase() === 'reserved').length;
         const cleaningCount = data.filter(b => String(b.status).toLowerCase() === 'cleaning').length;
+        const occupancyRate = total > 0 ? ((occupiedCount / total) * 100).toFixed(0) : 0;
 
+        // Stats cards
         if (summary) {
             summary.innerHTML = `
-                <div class="ops-mini-card"><div class="ops-mini-value">${data.length}</div><div class="ops-mini-label">Total Beds</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${availableCount}</div><div class="ops-mini-label">Available</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${occupiedCount}</div><div class="ops-mini-label">Occupied</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${reservedCount}</div><div class="ops-mini-label">Reserved</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${cleaningCount}</div><div class="ops-mini-label">Cleaning</div></div>
+                <div class="bed-stat-card total-beds"><div class="bed-stat-value">${total}</div><div class="bed-stat-label">Total Beds</div></div>
+                <div class="bed-stat-card available-beds"><div class="bed-stat-value">${availableCount}</div><div class="bed-stat-label">Available</div></div>
+                <div class="bed-stat-card occupied-beds"><div class="bed-stat-value">${occupiedCount}</div><div class="bed-stat-label">Occupied</div></div>
+                <div class="bed-stat-card reserved-beds"><div class="bed-stat-value">${reservedCount}</div><div class="bed-stat-label">Reserved</div></div>
+                <div class="bed-stat-card cleaning-beds"><div class="bed-stat-value">${cleaningCount}</div><div class="bed-stat-label">Cleaning</div></div>
             `;
         }
 
-        container.innerHTML = `
-            <div class="data-table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Bed</th>
-                            <th>Ward</th>
-                            <th>Status</th>
-                            <th>Patient</th>
-                            <th>Reserved For</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.map(b => `
-                            <tr>
-                                <td><strong>${escapeHtml(b.bed_number)}</strong></td>
-                                <td>${escapeHtml((b.ward || '').toUpperCase())}</td>
-                                <td><span class="status-badge ${escapeHtml(String(b.status || '').toLowerCase())}">${escapeHtml(b.status || '-')}</span></td>
-                                <td>${b.patient_id ?? '-'}</td>
-                                <td>${b.reserved_for_patient_id ?? '-'}</td>
-                                <td>
-                                    <div class="table-actions">
-                                        <button class="btn btn-sm btn-ghost" onclick='editStaffBed(${b.id}, ${JSON.stringify(b.status || "")})'>Update</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+        // Occupancy bar
+        if (occupancyBar) {
+            const pOccupied = total > 0 ? ((occupiedCount / total) * 100).toFixed(1) : 0;
+            const pReserved = total > 0 ? ((reservedCount / total) * 100).toFixed(1) : 0;
+            const pCleaning = total > 0 ? ((cleaningCount / total) * 100).toFixed(1) : 0;
+            const pAvailable = total > 0 ? ((availableCount / total) * 100).toFixed(1) : 0;
+            occupancyBar.innerHTML = `
+                <div class="occupancy-bar-container">
+                    <div class="occupancy-bar-label">
+                        <span>Bed Occupancy</span>
+                        <span>${occupancyRate}% Occupied</span>
+                    </div>
+                    <div class="occupancy-bar-track">
+                        <div class="occupancy-segment occupied" style="width:${pOccupied}%" title="Occupied: ${occupiedCount}"></div>
+                        <div class="occupancy-segment reserved" style="width:${pReserved}%" title="Reserved: ${reservedCount}"></div>
+                        <div class="occupancy-segment cleaning" style="width:${pCleaning}%" title="Cleaning: ${cleaningCount}"></div>
+                        <div class="occupancy-segment available" style="width:${pAvailable}%" title="Available: ${availableCount}"></div>
+                    </div>
+                    <div class="occupancy-bar-legend">
+                        <div class="occupancy-legend-item"><div class="occupancy-legend-dot occupied"></div>Occupied (${occupiedCount})</div>
+                        <div class="occupancy-legend-item"><div class="occupancy-legend-dot reserved"></div>Reserved (${reservedCount})</div>
+                        <div class="occupancy-legend-item"><div class="occupancy-legend-dot cleaning"></div>Cleaning (${cleaningCount})</div>
+                        <div class="occupancy-legend-item"><div class="occupancy-legend-dot available"></div>Available (${availableCount})</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Visual bed grid
+        container.innerHTML = data.map(b => {
+            const st = String(b.status || '').toLowerCase();
+            let patientInfo = '';
+            if (b.patient_id) patientInfo = `<div class="bed-card-patient-info">Patient #${b.patient_id}</div>`;
+            else if (b.reserved_for_patient_id) patientInfo = `<div class="bed-card-patient-info">Reserved for #${b.reserved_for_patient_id}</div>`;
+            return `
+                <div class="bed-card-visual status-${st}" onclick='editStaffBed(${b.id}, ${JSON.stringify(b.status || "")})'>
+                    <div class="bed-card-header">
+                        <div class="bed-card-number">${escapeHtml(b.bed_number)}</div>
+                        <div class="bed-card-status-dot ${st}"></div>
+                    </div>
+                    <div class="bed-card-ward">${escapeHtml((b.ward || 'General').toUpperCase())}</div>
+                    <span class="status-badge ${st}">${escapeHtml(b.status || '-')}</span>
+                    ${patientInfo}
+                </div>
+            `;
+        }).join('');
     } catch (e) {
         showToast(`Error: ${e.message}`, 'error');
     }
@@ -1870,6 +1989,7 @@ async function loadStaffBillingCases() {
     const statusValue = (document.getElementById('billing-status-filter')?.value || '').trim();
     const container = document.getElementById('billing-list');
     const summary = document.getElementById('billing-summary');
+    const pipeline = document.getElementById('billing-pipeline');
     if (!container) return;
 
     try {
@@ -1880,22 +2000,58 @@ async function loadStaffBillingCases() {
 
         if (!data.length) {
             if (summary) summary.innerHTML = '';
-            container.innerHTML = '<div class="empty-state"><p>No billing cases found</p></div>';
+            if (pipeline) pipeline.innerHTML = '';
+            container.innerHTML = '<div class="empty-state"><p>No billing cases found</p><span>Admit patients and run workflows to generate billing.</span></div>';
             return;
         }
 
         const openCount = data.filter(c => String(c.status).toLowerCase() === 'open').length;
+        const invoicedCount = data.filter(c => String(c.status).toLowerCase() === 'invoiced').length;
         const submittedCount = data.filter(c => String(c.status).toLowerCase() === 'submitted').length;
         const paidCount = data.filter(c => String(c.status).toLowerCase() === 'paid').length;
         const totalEstimated = data.reduce((sum, c) => sum + (Number(c.estimated_total) || 0), 0);
 
+        // Premium stats row
         if (summary) {
             summary.innerHTML = `
-                <div class="ops-mini-card"><div class="ops-mini-value">${data.length}</div><div class="ops-mini-label">Total Cases</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${openCount}</div><div class="ops-mini-label">Open</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${submittedCount}</div><div class="ops-mini-label">Submitted</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${paidCount}</div><div class="ops-mini-label">Paid</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${totalEstimated.toFixed(2)}</div><div class="ops-mini-label">Est. Total</div></div>
+                <div class="billing-stat-card stat-total">
+                    <div class="billing-stat-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+                    <div class="billing-stat-value">${data.length}</div>
+                    <div class="billing-stat-label">Total Cases</div>
+                </div>
+                <div class="billing-stat-card stat-open">
+                    <div class="billing-stat-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                    <div class="billing-stat-value">${openCount}</div>
+                    <div class="billing-stat-label">Open</div>
+                </div>
+                <div class="billing-stat-card stat-submitted">
+                    <div class="billing-stat-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
+                    <div class="billing-stat-value">${submittedCount}</div>
+                    <div class="billing-stat-label">Submitted</div>
+                </div>
+                <div class="billing-stat-card stat-paid">
+                    <div class="billing-stat-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+                    <div class="billing-stat-value">${paidCount}</div>
+                    <div class="billing-stat-label">Paid</div>
+                </div>
+                <div class="billing-stat-card stat-revenue">
+                    <div class="billing-stat-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                    <div class="billing-stat-value">$${totalEstimated.toFixed(0)}</div>
+                    <div class="billing-stat-label">Est. Revenue</div>
+                </div>
+            `;
+        }
+
+        // Pipeline visual in card header
+        if (pipeline) {
+            pipeline.innerHTML = `
+                <span class="pipeline-stage open">${openCount} Open</span>
+                <span class="pipeline-arrow">→</span>
+                <span class="pipeline-stage invoiced">${invoicedCount} Invoiced</span>
+                <span class="pipeline-arrow">→</span>
+                <span class="pipeline-stage submitted">${submittedCount} Submitted</span>
+                <span class="pipeline-arrow">→</span>
+                <span class="pipeline-stage paid">${paidCount} Paid</span>
             `;
         }
 
@@ -1915,17 +2071,20 @@ async function loadStaffBillingCases() {
                     </thead>
                     <tbody>
                         ${data.map(c => `
-                            <tr>
+                            <tr class="billing-row-highlight">
                                 <td><strong>#${c.id}</strong></td>
                                 <td>${c.patient_id}</td>
                                 <td><span class="status-badge ${escapeHtml(String(c.status || '').toLowerCase())}">${escapeHtml(c.status || '-')}</span></td>
-                                <td>${(Number(c.estimated_total) || 0).toFixed(2)}</td>
+                                <td style="font-weight:700; font-variant-numeric:tabular-nums;">$${(Number(c.estimated_total) || 0).toFixed(2)}</td>
                                 <td>${escapeHtml(c.invoice_number || '-')}</td>
                                 <td>${c.created_at ? new Date(c.created_at).toLocaleString() : '-'}</td>
                                 <td>
                                     <div class="table-actions">
                                         <button class="btn btn-sm btn-ghost" onclick='editStaffBillingCase(${c.id}, ${JSON.stringify(c.status || "")})'>Update</button>
-                                        <button class="btn btn-sm btn-primary" onclick='runBillingA2AWorkflow(${c.id}, ${c.patient_id})'>Run A2A Flow</button>
+                                        <button class="btn btn-sm btn-primary" onclick='runBillingA2AWorkflow(${c.id}, ${c.patient_id})'>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                            Run A2A Flow
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -2008,6 +2167,8 @@ async function loadStaffInsuranceClaims() {
     const statusValue = (document.getElementById('claims-status-filter')?.value || '').trim();
     const container = document.getElementById('claims-list');
     const summary = document.getElementById('claims-summary');
+    const pipelineVisual = document.getElementById('claims-pipeline-visual');
+    const profilesContainer = document.getElementById('insurance-profiles-list');
     if (!container) return;
 
     try {
@@ -2018,7 +2179,8 @@ async function loadStaffInsuranceClaims() {
 
         if (!data.length) {
             if (summary) summary.innerHTML = '';
-            container.innerHTML = '<div class="empty-state"><p>No insurance claims found</p></div>';
+            if (pipelineVisual) pipelineVisual.innerHTML = '';
+            container.innerHTML = '<div class="empty-state"><p>No insurance claims found</p><span>Run billing A2A workflows to generate claims.</span></div>';
             return;
         }
 
@@ -2026,25 +2188,96 @@ async function loadStaffInsuranceClaims() {
         const submittedCount = data.filter(c => String(c.status).toLowerCase() === 'submitted').length;
         const approvedCount = data.filter(c => String(c.status).toLowerCase() === 'approved').length;
         const rejectedCount = data.filter(c => String(c.status).toLowerCase() === 'rejected').length;
+        const paidCount = data.filter(c => String(c.status).toLowerCase() === 'paid').length;
 
-        if (summary) {
-            summary.innerHTML = `
-                <div class="ops-mini-card"><div class="ops-mini-value">${data.length}</div><div class="ops-mini-label">Total Claims</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${pendingCount}</div><div class="ops-mini-label">Pending</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${submittedCount}</div><div class="ops-mini-label">Submitted</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${approvedCount}</div><div class="ops-mini-label">Approved</div></div>
-                <div class="ops-mini-card"><div class="ops-mini-value">${rejectedCount}</div><div class="ops-mini-label">Rejected</div></div>
+        // Pipeline visual
+        if (pipelineVisual) {
+            pipelineVisual.innerHTML = `
+                <div class="pipeline-node pending">
+                    <div class="pipeline-node-circle">${pendingCount}</div>
+                    <div class="pipeline-node-label">Pending</div>
+                </div>
+                <div class="pipeline-connector"></div>
+                <div class="pipeline-node submitted">
+                    <div class="pipeline-node-circle">${submittedCount}</div>
+                    <div class="pipeline-node-label">Submitted</div>
+                </div>
+                <div class="pipeline-connector"></div>
+                <div class="pipeline-node approved">
+                    <div class="pipeline-node-circle">${approvedCount}</div>
+                    <div class="pipeline-node-label">Approved</div>
+                </div>
+                <div class="pipeline-connector"></div>
+                <div class="pipeline-node rejected">
+                    <div class="pipeline-node-circle">${rejectedCount}</div>
+                    <div class="pipeline-node-label">Rejected</div>
+                </div>
+                <div class="pipeline-connector"></div>
+                <div class="pipeline-node paid">
+                    <div class="pipeline-node-circle">${paidCount}</div>
+                    <div class="pipeline-node-label">Paid</div>
+                </div>
             `;
         }
 
-        let profileSection = '';
-        try {
-            const pRes = await apiFetch(`${API}/staff/insurance/profiles`);
-            const pData = await pRes.json();
-            if (pRes.ok && Array.isArray(pData) && pData.length) {
-                profileSection = `
-                    <div style="margin-top:12px;">
-                        <h3 style="margin:0 0 8px; font-size:0.9rem; color:var(--text-secondary);">Saved Patient Insurance Details</h3>
+        // Stats row
+        if (summary) {
+            summary.innerHTML = `
+                <div class="insurance-stat-card"><div class="insurance-stat-value total-color">${data.length}</div><div class="insurance-stat-label">Total Claims</div></div>
+                <div class="insurance-stat-card"><div class="insurance-stat-value pending-color">${pendingCount}</div><div class="insurance-stat-label">Pending</div></div>
+                <div class="insurance-stat-card"><div class="insurance-stat-value submitted-color">${submittedCount}</div><div class="insurance-stat-label">Submitted</div></div>
+                <div class="insurance-stat-card"><div class="insurance-stat-value approved-color">${approvedCount}</div><div class="insurance-stat-label">Approved</div></div>
+                <div class="insurance-stat-card"><div class="insurance-stat-value rejected-color">${rejectedCount}</div><div class="insurance-stat-label">Rejected</div></div>
+            `;
+        }
+
+        // Claims table
+        container.innerHTML = `
+            <div class="data-table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Claim ID</th>
+                            <th>Patient ID</th>
+                            <th>Status</th>
+                            <th>Provider</th>
+                            <th>Plan</th>
+                            <th>Member ID</th>
+                            <th>Claim Amount</th>
+                            <th>Approved Amount</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(c => `
+                            <tr class="billing-row-highlight">
+                                <td><strong>#${c.id}</strong></td>
+                                <td>${c.patient_id}</td>
+                                <td><span class="status-badge ${escapeHtml(String(c.status || '').toLowerCase())}">${escapeHtml(c.status || '-')}</span></td>
+                                <td>${escapeHtml(c.insurance_provider || '-')}</td>
+                                <td>${escapeHtml(c.plan_type || '-')}</td>
+                                <td>${escapeHtml(c.member_id || '-')}</td>
+                                <td style="font-weight:700; font-variant-numeric:tabular-nums;">$${(Number(c.claim_amount) || 0).toFixed(2)}</td>
+                                <td style="font-weight:700; font-variant-numeric:tabular-nums;">$${(Number(c.approved_amount) || 0).toFixed(2)}</td>
+                                <td>
+                                    <div class="table-actions">
+                                        <button class="btn btn-sm btn-ghost" onclick='editStaffInsuranceClaim(${c.id}, ${JSON.stringify(c.status || "")})'>Update</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        // Load insurance profiles into separate card
+        if (profilesContainer) {
+            try {
+                const pRes = await apiFetch(`${API}/staff/insurance/profiles`);
+                const pData = await pRes.json();
+                if (pRes.ok && Array.isArray(pData) && pData.length) {
+                    profilesContainer.innerHTML = `
                         <div class="data-table-wrap">
                             <table class="data-table">
                                 <thead>
@@ -2073,52 +2306,14 @@ async function loadStaffInsuranceClaims() {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    profilesContainer.innerHTML = '<div class="empty-state"><p>No insurance profiles saved yet</p></div>';
+                }
+            } catch (_) {
+                profilesContainer.innerHTML = '';
             }
-        } catch (_) {
-            // Keep claims page usable even if profiles call fails.
         }
-
-        container.innerHTML = `
-            <div class="data-table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Claim ID</th>
-                            <th>Patient ID</th>
-                            <th>Status</th>
-                            <th>Provider</th>
-                            <th>Plan</th>
-                            <th>Member ID</th>
-                            <th>Claim Amount</th>
-                            <th>Approved Amount</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.map(c => `
-                            <tr>
-                                <td><strong>#${c.id}</strong></td>
-                                <td>${c.patient_id}</td>
-                                <td><span class="status-badge ${escapeHtml(String(c.status || '').toLowerCase())}">${escapeHtml(c.status || '-')}</span></td>
-                                <td>${escapeHtml(c.insurance_provider || '-')}</td>
-                                <td>${escapeHtml(c.plan_type || '-')}</td>
-                                <td>${escapeHtml(c.member_id || '-')}</td>
-                                <td>${(Number(c.claim_amount) || 0).toFixed(2)}</td>
-                                <td>${(Number(c.approved_amount) || 0).toFixed(2)}</td>
-                                <td>
-                                    <div class="table-actions">
-                                        <button class="btn btn-sm btn-ghost" onclick='editStaffInsuranceClaim(${c.id}, ${JSON.stringify(c.status || "")})'>Update</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-            ${profileSection}
-        `;
     } catch (e) {
         showToast(`Error: ${e.message}`, 'error');
     }

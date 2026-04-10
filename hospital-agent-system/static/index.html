@@ -258,11 +258,19 @@
                     </div>
                 </div>
 
-                <!-- Execution Result -->
+                <!-- Execution Result with Enhanced A2A/MCP Visualization -->
                 <div class="result-panel" id="admit-result" style="display:none">
                     <div class="result-header">
-                        <h3>Workflow Execution</h3>
+                        <h3>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            Admission Workflow Execution
+                        </h3>
                         <div class="result-status" id="admit-status"></div>
+                    </div>
+                    <div class="workflow-legend">
+                        <div class="legend-chip legend-a2a"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> A2A Message</div>
+                        <div class="legend-chip legend-mcp"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> MCP Tool Call</div>
+                        <div class="legend-chip legend-agent"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg> Agent Step</div>
                     </div>
                     <div class="workflow-timeline" id="admit-timeline"></div>
                 </div>
@@ -531,27 +539,41 @@
             </div>
         </section>
 
+        <!-- ══════════ PATIENTS PAGE (REDESIGNED) ══════════ -->
         <section class="page" id="page-patients">
             <div class="page-header-bar">
                 <div>
-                    <h2>Patients</h2>
-                    <p>View and manage patient operational details</p>
+                    <h2>Patient Management</h2>
+                    <p>View and manage all patient records across departments</p>
                 </div>
-                <div style="display:flex; gap:8px;">
-                    <input type="text" id="patients-search" placeholder="Search patient name" style="max-width:240px;"/>
-                    <button class="btn btn-ghost" onclick="loadStaffPatients()">Refresh</button>
+                <div class="filter-row">
+                    <input type="text" id="patients-search" placeholder="Search by name..." style="max-width:240px;"/>
+                    <button class="btn btn-ghost" onclick="loadStaffPatients()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Refresh
+                    </button>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-body" id="patients-list"></div>
+            <div class="ops-summary-grid" id="patients-summary"></div>
+            <div id="patients-list" class="patients-card-grid"></div>
+            <!-- Patient detail modal -->
+            <div class="modal-overlay" id="patient-detail-modal" style="display:none;">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h3 id="modal-patient-title">Patient Details</h3>
+                        <button class="btn btn-sm btn-ghost" onclick="closePatientModal()">✕</button>
+                    </div>
+                    <div class="modal-body" id="modal-patient-body"></div>
+                </div>
             </div>
         </section>
 
+        <!-- ══════════ BEDS PAGE (REDESIGNED) ══════════ -->
         <section class="page" id="page-beds">
             <div class="page-header-bar">
                 <div>
-                    <h2>Beds</h2>
-                    <p>Live bed inventory and occupancy controls</p>
+                    <h2>Bed Management</h2>
+                    <p>Real-time bed inventory, occupancy tracking &amp; ward overview</p>
                 </div>
                 <div class="filter-row">
                     <input type="text" id="beds-ward-filter" placeholder="Ward (optional)" style="max-width:180px;"/>
@@ -562,20 +584,25 @@
                         <option value="reserved">Reserved</option>
                         <option value="cleaning">Cleaning</option>
                     </select>
-                    <button class="btn btn-ghost" onclick="loadStaffBeds()">Refresh</button>
+                    <button class="btn btn-ghost" onclick="loadStaffBeds()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Refresh
+                    </button>
                 </div>
             </div>
-            <div class="ops-summary-grid" id="beds-summary"></div>
-            <div class="card">
-                <div class="card-body" id="beds-list"></div>
+            <div class="beds-dashboard-grid">
+                <div class="beds-stats-panel" id="beds-summary"></div>
+                <div class="beds-occupancy-bar" id="beds-occupancy-bar"></div>
             </div>
+            <div id="beds-list" class="beds-visual-grid"></div>
         </section>
 
+        <!-- ══════════ BILLING PAGE (REDESIGNED) ══════════ -->
         <section class="page" id="page-billing">
             <div class="page-header-bar">
                 <div>
-                    <h2>Billing Cases</h2>
-                    <p>Track billing lifecycle and invoice readiness</p>
+                    <h2>Billing Operations</h2>
+                    <p>Track billing lifecycle, generate invoices &amp; run A2A workflows</p>
                 </div>
                 <div class="filter-row">
                     <select id="billing-status-filter" style="max-width:220px;">
@@ -586,27 +613,44 @@
                         <option value="paid">Paid</option>
                         <option value="closed">Closed</option>
                     </select>
-                    <button class="btn btn-ghost" onclick="loadStaffBillingCases()">Refresh</button>
+                    <button class="btn btn-ghost" onclick="loadStaffBillingCases()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Refresh
+                    </button>
                 </div>
             </div>
-            <div class="ops-summary-grid" id="billing-summary"></div>
-            <div class="card">
+            <div class="billing-stats-row" id="billing-summary"></div>
+            <div class="card billing-table-card">
+                <div class="card-header">
+                    <h2>Billing Cases</h2>
+                    <div class="billing-pipeline" id="billing-pipeline"></div>
+                </div>
                 <div class="card-body" id="billing-list"></div>
             </div>
+            <!-- Billing Workflow Result Panel -->
             <div class="result-panel" id="billing-workflow-result" style="display:none; margin-top:16px;">
                 <div class="result-header">
-                    <h3>Billing A2A Workflow</h3>
+                    <h3>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Billing A2A Workflow
+                    </h3>
                     <div class="result-status" id="billing-workflow-status"></div>
+                </div>
+                <div class="workflow-legend">
+                    <div class="legend-chip legend-a2a"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> A2A Message</div>
+                    <div class="legend-chip legend-mcp"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> MCP Tool Call</div>
+                    <div class="legend-chip legend-agent"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg> Agent Step</div>
                 </div>
                 <div class="workflow-timeline" id="billing-workflow-timeline"></div>
             </div>
         </section>
 
+        <!-- ══════════ INSURANCE PAGE (REDESIGNED) ══════════ -->
         <section class="page" id="page-insurance">
             <div class="page-header-bar">
                 <div>
-                    <h2>Insurance Claims</h2>
-                    <p>Monitor claim statuses and settlement outcomes</p>
+                    <h2>Insurance Claims Center</h2>
+                    <p>Monitor claim lifecycle, eligibility verification &amp; settlement tracking</p>
                 </div>
                 <div class="filter-row">
                     <select id="claims-status-filter" style="max-width:220px;">
@@ -617,12 +661,27 @@
                         <option value="rejected">Rejected</option>
                         <option value="paid">Paid</option>
                     </select>
-                    <button class="btn btn-ghost" onclick="loadStaffInsuranceClaims()">Refresh</button>
+                    <button class="btn btn-ghost" onclick="loadStaffInsuranceClaims()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Refresh
+                    </button>
                 </div>
             </div>
-            <div class="ops-summary-grid" id="claims-summary"></div>
-            <div class="card">
+            <!-- Claims Pipeline Visual -->
+            <div class="claims-pipeline-visual" id="claims-pipeline-visual"></div>
+            <div class="insurance-stats-row" id="claims-summary"></div>
+            <div class="card insurance-table-card">
+                <div class="card-header">
+                    <h2>Claims Registry</h2>
+                </div>
                 <div class="card-body" id="claims-list"></div>
+            </div>
+            <!-- Insurance profiles section -->
+            <div class="card" id="insurance-profiles-card" style="margin-top:16px;">
+                <div class="card-header">
+                    <h2>Patient Insurance Profiles</h2>
+                </div>
+                <div class="card-body" id="insurance-profiles-list"></div>
             </div>
         </section>
 

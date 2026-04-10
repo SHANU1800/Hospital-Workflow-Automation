@@ -2090,3 +2090,862 @@ body {
         font-size: 0.68rem;
     }
 }
+
+/* ═══════════════════════════════════════════════════════
+   REDESIGNED PAGES — Premium UI Overhaul
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Workflow Legend (A2A / MCP / Agent) ────────── */
+.workflow-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 28px 0;
+}
+
+.legend-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.legend-chip.legend-a2a {
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    color: #a5b4fc;
+}
+
+.legend-chip.legend-mcp {
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    color: #c4b5fd;
+}
+
+.legend-chip.legend-agent {
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.25);
+    color: #67e8f9;
+}
+
+/* ── Enhanced A2A Message Block ────────────────── */
+.timeline-a2a {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.03));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-left: 3px solid var(--accent-primary);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.78rem;
+    position: relative;
+    animation: a2aFadeIn 0.4s ease-out;
+}
+
+@keyframes a2aFadeIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.timeline-a2a-label {
+    font-weight: 700;
+    color: var(--accent-primary);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+}
+
+.timeline-a2a-label::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    box-shadow: 0 0 8px var(--accent-primary-glow);
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.timeline-a2a .a2a-direction {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: rgba(99, 102, 241, 0.15);
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #c7d2fe;
+}
+
+/* ── Enhanced MCP Tool Call Block ──────────────── */
+.timeline-mcp-call {
+    margin-top: 8px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(139, 92, 246, 0.02));
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-left: 3px solid var(--agent-scheduler);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.78rem;
+    animation: mcpFadeIn 0.35s ease-out;
+}
+
+@keyframes mcpFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.timeline-mcp-call .mcp-label {
+    font-weight: 700;
+    color: var(--agent-scheduler);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 0.74rem;
+}
+
+.timeline-mcp-call .mcp-label::before {
+    content: '⚡';
+    font-size: 0.72rem;
+}
+
+.timeline-mcp-call .mcp-tool-name {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    font-weight: 700;
+    color: #c4b5fd;
+    padding: 1px 6px;
+    background: rgba(139, 92, 246, 0.12);
+    border-radius: 4px;
+    font-size: 0.72rem;
+}
+
+.timeline-mcp-call .mcp-result {
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    max-height: 100px;
+    overflow-y: auto;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    word-break: break-all;
+}
+
+/* ── Enhanced Agent Badge Colors ──────────────── */
+.timeline-agent-badge.TriageAgent { background: rgba(244, 63, 94, 0.12); color: #fb7185; }
+.timeline-agent-badge.BedManagementAgent { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+.timeline-agent-badge.BillingAgent { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+.timeline-agent-badge.InsuranceAgent { background: rgba(6, 182, 212, 0.12); color: #22d3ee; }
+.timeline-agent-badge.LabAgent { background: rgba(168, 85, 247, 0.12); color: #c084fc; }
+.timeline-agent-badge.SupervisorAgent { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+
+
+/* ═══════════════════════════════════════════════════════
+   PATIENTS PAGE — Premium Patient Cards
+   ═══════════════════════════════════════════════════════ */
+.patients-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 14px;
+}
+
+.patient-card-premium {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: 0;
+    overflow: hidden;
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.patient-card-premium:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.patient-card-top {
+    padding: 18px 18px 14px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.06), transparent);
+}
+
+.patient-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: white;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.patient-avatar.dept-general { background: linear-gradient(135deg, #6366f1, #818cf8); }
+.patient-avatar.dept-cardiology { background: linear-gradient(135deg, #ec4899, #f472b6); }
+.patient-avatar.dept-emergency { background: linear-gradient(135deg, #ef4444, #f97316); }
+.patient-avatar.dept-neurology { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+.patient-avatar.dept-orthopedics { background: linear-gradient(135deg, #14b8a6, #2dd4bf); }
+.patient-avatar.dept-pediatrics { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.patient-avatar.dept-oncology { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
+.patient-avatar.dept-default { background: linear-gradient(135deg, #64748b, #94a3b8); }
+
+.patient-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.patient-card-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.patient-card-meta {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.patient-card-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.patient-card-id {
+    padding: 2px 8px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #a5b4fc;
+    flex-shrink: 0;
+}
+
+.patient-card-body {
+    padding: 0 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.patient-card-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.patient-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.patient-badge.admitted {
+    background: rgba(16, 185, 129, 0.14);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.patient-badge.not-admitted {
+    background: rgba(100, 116, 139, 0.14);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+.patient-badge.has-bed {
+    background: rgba(59, 130, 246, 0.14);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.patient-card-condition {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding: 6px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.patient-card-actions {
+    display: flex;
+    gap: 6px;
+    padding: 10px 18px 14px;
+    border-top: 1px solid var(--border-color);
+}
+
+.patient-card-actions .btn {
+    flex: 1;
+    font-size: 0.76rem;
+    padding: 7px 10px;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   BEDS PAGE — Visual Bed Grid
+   ═══════════════════════════════════════════════════════ */
+.beds-dashboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.beds-stats-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.bed-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 16px 14px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-normal);
+}
+
+.bed-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+}
+
+.bed-stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+}
+
+.bed-stat-card.total-beds::after { background: linear-gradient(90deg, #6366f1, #818cf8); }
+.bed-stat-card.available-beds::after { background: linear-gradient(90deg, #10b981, #34d399); }
+.bed-stat-card.occupied-beds::after { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.bed-stat-card.reserved-beds::after { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.bed-stat-card.cleaning-beds::after { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+.bed-stat-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.bed-stat-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+/* Occupancy Bar */
+.beds-occupancy-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 14px 18px;
+}
+
+.occupancy-bar-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.occupancy-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.occupancy-bar-track {
+    height: 18px;
+    background: rgba(100, 116, 139, 0.15);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+}
+
+.occupancy-segment {
+    height: 100%;
+    transition: width var(--transition-slow);
+    position: relative;
+}
+
+.occupancy-segment.occupied { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.occupancy-segment.reserved { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.occupancy-segment.cleaning { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.occupancy-segment.available { background: linear-gradient(90deg, #10b981, #34d399); }
+
+.occupancy-bar-legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.occupancy-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.occupancy-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.occupancy-legend-dot.occupied { background: #f59e0b; }
+.occupancy-legend-dot.reserved { background: #3b82f6; }
+.occupancy-legend-dot.cleaning { background: #8b5cf6; }
+.occupancy-legend-dot.available { background: #10b981; }
+
+/* Visual Bed Grid */
+.beds-visual-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.bed-card-visual {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 14px;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.bed-card-visual:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.bed-card-visual::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+}
+
+.bed-card-visual.status-available::before { background: linear-gradient(90deg, #10b981, #34d399); }
+.bed-card-visual.status-occupied::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.bed-card-visual.status-reserved::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.bed-card-visual.status-cleaning::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+.bed-card-visual.status-available { border-color: rgba(16, 185, 129, 0.25); }
+.bed-card-visual.status-occupied { border-color: rgba(245, 158, 11, 0.25); }
+.bed-card-visual.status-reserved { border-color: rgba(59, 130, 246, 0.25); }
+.bed-card-visual.status-cleaning { border-color: rgba(139, 92, 246, 0.25); }
+
+.bed-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.bed-card-number {
+    font-weight: 800;
+    font-size: 1rem;
+}
+
+.bed-card-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.bed-card-status-dot.available { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+.bed-card-status-dot.occupied { background: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+.bed-card-status-dot.reserved { background: #3b82f6; box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
+.bed-card-status-dot.cleaning { background: #8b5cf6; box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); }
+
+.bed-card-ward {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.bed-card-patient-info {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-color);
+}
+
+.bed-card-actions {
+    margin-top: 8px;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   BILLING PAGE — Premium Dashboard
+   ═══════════════════════════════════════════════════════ */
+.billing-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.billing-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 18px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-normal);
+}
+
+.billing-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+}
+
+.billing-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    bottom: 0;
+}
+
+.billing-stat-card.stat-total::before { background: linear-gradient(180deg, #6366f1, #818cf8); }
+.billing-stat-card.stat-open::before { background: linear-gradient(180deg, #3b82f6, #60a5fa); }
+.billing-stat-card.stat-submitted::before { background: linear-gradient(180deg, #f59e0b, #fbbf24); }
+.billing-stat-card.stat-paid::before { background: linear-gradient(180deg, #10b981, #34d399); }
+.billing-stat-card.stat-revenue::before { background: linear-gradient(180deg, #ec4899, #f472b6); }
+
+.billing-stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.billing-stat-card.stat-total .billing-stat-icon { background: rgba(99, 102, 241, 0.12); color: var(--accent-primary); }
+.billing-stat-card.stat-open .billing-stat-icon { background: rgba(59, 130, 246, 0.12); color: var(--accent-info); }
+.billing-stat-card.stat-submitted .billing-stat-icon { background: rgba(245, 158, 11, 0.12); color: var(--accent-warning); }
+.billing-stat-card.stat-paid .billing-stat-icon { background: rgba(16, 185, 129, 0.12); color: var(--accent-success); }
+.billing-stat-card.stat-revenue .billing-stat-icon { background: rgba(236, 72, 153, 0.12); color: #f472b6; }
+
+.billing-stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.billing-stat-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.billing-table-card {
+    border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.billing-pipeline {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.pipeline-stage {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.pipeline-stage.open { background: rgba(59, 130, 246, 0.12); color: #93c5fd; }
+.pipeline-stage.invoiced { background: rgba(245, 158, 11, 0.12); color: #fcd34d; }
+.pipeline-stage.submitted { background: rgba(168, 85, 247, 0.12); color: #c4b5fd; }
+.pipeline-stage.paid { background: rgba(16, 185, 129, 0.12); color: #6ee7b7; }
+
+.pipeline-arrow {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+/* ── Billing row hover with glow ─────────────── */
+.billing-row-highlight:hover {
+    background: rgba(99, 102, 241, 0.04) !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   INSURANCE PAGE — Claims Pipeline & Dashboard
+   ═══════════════════════════════════════════════════════ */
+.claims-pipeline-visual {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 16px;
+    padding: 18px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    overflow-x: auto;
+}
+
+.pipeline-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 100px;
+    flex: 1;
+    text-align: center;
+    position: relative;
+}
+
+.pipeline-node-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1rem;
+    position: relative;
+    z-index: 1;
+    transition: all var(--transition-normal);
+}
+
+.pipeline-node.pending .pipeline-node-circle { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 2px solid rgba(59, 130, 246, 0.4); }
+.pipeline-node.submitted .pipeline-node-circle { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 2px solid rgba(245, 158, 11, 0.4); }
+.pipeline-node.approved .pipeline-node-circle { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 2px solid rgba(16, 185, 129, 0.4); }
+.pipeline-node.rejected .pipeline-node-circle { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 2px solid rgba(239, 68, 68, 0.4); }
+.pipeline-node.paid .pipeline-node-circle { background: rgba(16, 185, 129, 0.25); color: #6ee7b7; border: 2px solid rgba(16, 185, 129, 0.5); box-shadow: 0 0 16px rgba(16, 185, 129, 0.3); }
+
+.pipeline-node-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.pipeline-node-count {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.pipeline-connector {
+    flex: 0.6;
+    height: 2px;
+    background: var(--border-color);
+    position: relative;
+    min-width: 30px;
+}
+
+.pipeline-connector::after {
+    content: '›';
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.insurance-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.insurance-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 14px;
+    text-align: center;
+    transition: all var(--transition-normal);
+}
+
+.insurance-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+}
+
+.insurance-stat-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.insurance-stat-value.pending-color { color: #60a5fa; }
+.insurance-stat-value.submitted-color { color: #fbbf24; }
+.insurance-stat-value.approved-color { color: #34d399; }
+.insurance-stat-value.rejected-color { color: #f87171; }
+.insurance-stat-value.total-color { color: var(--text-primary); }
+
+.insurance-stat-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.insurance-table-card {
+    border: 1px solid rgba(6, 182, 212, 0.15);
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════════════════════ */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 12, 20, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn var(--transition-normal);
+}
+
+.modal-card {
+    width: min(600px, calc(100vw - 32px));
+    max-height: 80vh;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp var(--transition-slow);
+}
+
+.modal-header {
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.08), transparent);
+}
+
+.modal-header h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.modal-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.modal-detail-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
+.modal-detail-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* ── Responsive adjustments for new pages ─────── */
+@media (max-width: 1200px) {
+    .patients-card-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+    .beds-visual-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+@media (max-width: 900px) {
+    .patients-card-grid { grid-template-columns: 1fr; }
+    .beds-visual-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .claims-pipeline-visual { padding: 14px; }
+    .billing-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .beds-visual-grid { grid-template-columns: repeat(2, 1fr); }
+    .billing-stats-row { grid-template-columns: 1fr; }
+    .insurance-stats-row { grid-template-columns: repeat(2, 1fr); }
+    .pipeline-node { min-width: 70px; }
+}
