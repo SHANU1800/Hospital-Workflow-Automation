@@ -11,6 +11,7 @@ let currentPage = 'dashboard';
 let executionLogs = [];
 let authToken = null;
 let currentUser = null;
+let authMode = 'signin';
 let bookingState = {
     recommendedDepartment: null,
     selectedDoctorId: null,
@@ -28,11 +29,11 @@ let doctorCalendarState = {
 
 const roleAccess = {
     super_admin: {
-        pages: ['dashboard', 'admit', 'events', 'appointments', 'patients', 'beds', 'billing', 'insurance', 'reports', 'logs', 'agents', 'tools'],
+        pages: ['dashboard', 'admit', 'events', 'patients', 'beds', 'billing', 'insurance', 'reports', 'logs', 'agents', 'tools'],
         canQuickActions: true,
     },
     staff: {
-        pages: ['dashboard', 'admit', 'events', 'appointments', 'patients', 'beds', 'billing', 'insurance', 'reports', 'agents', 'tools'],
+        pages: ['dashboard', 'admit', 'events', 'patients', 'beds', 'billing', 'insurance', 'reports', 'agents', 'tools'],
         canQuickActions: true,
     },
     doctor: {
@@ -96,6 +97,7 @@ async function ensureAuthenticated() {
 
     if (!authToken) {
         showAuthOverlay(true);
+        setAuthMode('signin');
         return false;
     }
 
@@ -138,14 +140,41 @@ function showAuthOverlay(show) {
     document.getElementById('auth-overlay').classList.toggle('active', show);
 }
 
+function setAuthMode(mode) {
+    authMode = mode === 'signup' ? 'signup' : 'signin';
+
+    const isSignup = authMode === 'signup';
+    const title = document.getElementById('auth-title');
+    const subtitle = document.getElementById('auth-subtitle');
+    const signinBtn = document.getElementById('auth-mode-signin');
+    const signupBtn = document.getElementById('auth-mode-signup');
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+
+    title.textContent = isSignup ? 'Sign Up' : 'Sign In';
+    subtitle.textContent = isSignup
+        ? 'Create a patient account to use booking and billing self-service.'
+        : 'Authenticate to access workflow actions and logs.';
+
+    signinBtn.classList.toggle('active', !isSignup);
+    signupBtn.classList.toggle('active', isSignup);
+
+    loginForm.classList.toggle('auth-form-hidden', isSignup);
+    signupForm.classList.toggle('auth-form-hidden', !isSignup);
+
+    document.getElementById('auth-error-login').textContent = '';
+    document.getElementById('auth-error-signup').textContent = '';
+}
+
 function forceLogout(message = '') {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     authToken = null;
     currentUser = null;
     renderAuthUser();
     showAuthOverlay(true);
+    setAuthMode('signin');
     if (message) {
-        document.getElementById('auth-error').textContent = message;
+        document.getElementById('auth-error-login').textContent = message;
     }
 }
 
@@ -154,7 +183,7 @@ async function login(event) {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     const loginBtn = document.getElementById('btn-login');
-    const errorEl = document.getElementById('auth-error');
+    const errorEl = document.getElementById('auth-error-login');
 
     errorEl.textContent = '';
     loginBtn.disabled = true;
@@ -185,14 +214,61 @@ async function login(event) {
     }
 }
 
+async function signup(event) {
+    event.preventDefault();
+
+    const username = document.getElementById('signup-username').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const confirmPassword = document.getElementById('signup-confirm-password').value;
+    const signupBtn = document.getElementById('btn-signup');
+    const errorEl = document.getElementById('auth-error-signup');
+
+    errorEl.textContent = '';
+
+    if (password !== confirmPassword) {
+        errorEl.textContent = 'Passwords do not match';
+        return;
+    }
+
+    signupBtn.disabled = true;
+
+    try {
+        const res = await fetch(`${API}/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || 'Signup failed');
+        }
+
+        authToken = data.access_token;
+        localStorage.setItem(TOKEN_STORAGE_KEY, authToken);
+
+        await loadCurrentUser();
+        showAuthOverlay(false);
+        postLoginBootstrap();
+        showToast('Account created successfully', 'success');
+    } catch (e) {
+        errorEl.textContent = e.message || 'Signup failed';
+    } finally {
+        signupBtn.disabled = false;
+    }
+}
+
 function logout() {
     forceLogout('You have been signed out.');
 }
 
 function fillDemoCredentials(username, password) {
+    setAuthMode('signin');
     document.getElementById('login-username').value = username;
     document.getElementById('login-password').value = password;
-    document.getElementById('auth-error').textContent = '';
+    document.getElementById('auth-error-login').textContent = '';
 }
 
 function applyRoleUI() {
@@ -769,6 +845,7 @@ async function loadAgents() {
 
         grid.innerHTML = (data.agents || []).map(agent => {
             const meta = agentMeta[agent.name] || { color: 'var(--accent-primary)', glow: 'transparent', icon: '?', desc: '' };
+            const mcpTools = agent.mcp_tools || [];
             return `
                 <div class="agent-card" style="--glow: ${meta.glow}">
                     <div class="agent-card-icon" style="background: ${meta.glow}; color: ${meta.color}">${meta.icon}</div>
@@ -778,6 +855,12 @@ async function loadAgents() {
                     <div class="agent-capabilities">
                         <h4>Capabilities</h4>
                         ${(agent.capabilities || []).map(c => `<span class="capability-tag">${c}</span>`).join('')}
+                    </div>
+                    <div class="agent-capabilities" style="margin-top:10px;">
+                        <h4>MCP Tools Used</h4>
+                        ${mcpTools.length
+                            ? mcpTools.map(t => `<span class="capability-tag">${t}</span>`).join('')
+                            : '<span class="capability-tag">No direct tool usage</span>'}
                     </div>
                 </div>`;
         }).join('');
@@ -1842,6 +1925,7 @@ async function loadStaffBillingCases() {
                                 <td>
                                     <div class="table-actions">
                                         <button class="btn btn-sm btn-ghost" onclick='editStaffBillingCase(${c.id}, ${JSON.stringify(c.status || "")})'>Update</button>
+                                        <button class="btn btn-sm btn-primary" onclick='runBillingA2AWorkflow(${c.id}, ${c.patient_id})'>Run A2A Flow</button>
                                     </div>
                                 </td>
                             </tr>
@@ -1879,6 +1963,44 @@ async function editStaffBillingCase(caseId, currentStatus) {
         await loadStaffBillingCases();
     } catch (e) {
         showToast(`Error: ${e.message}`, 'error');
+    }
+}
+
+async function runBillingA2AWorkflow(caseId, patientId) {
+    try {
+        showLoading(true);
+        const res = await apiFetch(`${API}/staff/billing/cases/${caseId}/a2a-workflow`, {
+            method: 'POST',
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to run billing workflow');
+
+        renderWorkflowResult('billing-workflow', data);
+
+        const decision = data.insurance_decision || {};
+        const decisionStatus = String(decision.status || 'unknown').toLowerCase();
+        if (decisionStatus === 'accepted') {
+            const coverage = Number(decision.coverage_percentage || 0);
+            showToast(`Billing A2A complete: insurance accepted (${coverage}% coverage)`, 'success');
+        } else if (decisionStatus === 'rejected') {
+            const issues = Array.isArray(decision.issues) && decision.issues.length
+                ? ` [${decision.issues.join(', ')}]`
+                : '';
+            showToast(`Billing A2A complete: insurance rejected${issues}`, 'info');
+        } else {
+            showToast(
+                `Billing A2A complete: ${data.summary?.completed || 0}/${data.summary?.total_steps || 0} steps`,
+                data.status === 'completed' ? 'success' : 'info'
+            );
+        }
+
+        await loadStaffBillingCases();
+        await loadStaffInsuranceClaims();
+        await loadDashboard();
+    } catch (e) {
+        showToast(`Error: ${e.message}`, 'error');
+    } finally {
+        showLoading(false);
     }
 }
 

@@ -593,6 +593,13 @@
             <div class="card">
                 <div class="card-body" id="billing-list"></div>
             </div>
+            <div class="result-panel" id="billing-workflow-result" style="display:none; margin-top:16px;">
+                <div class="result-header">
+                    <h3>Billing A2A Workflow</h3>
+                    <div class="result-status" id="billing-workflow-status"></div>
+                </div>
+                <div class="workflow-timeline" id="billing-workflow-timeline"></div>
+            </div>
         </section>
 
         <section class="page" id="page-insurance">
@@ -684,8 +691,12 @@
                 <div class="auth-icon">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"/><circle cx="12" cy="10" r="2"/><path d="M8.5 16a3.5 3.5 0 0 1 7 0"/></svg>
                 </div>
-                <h2>Sign In</h2>
-                <p>Authenticate to access workflow actions and logs.</p>
+                <h2 id="auth-title">Sign In</h2>
+                <p id="auth-subtitle">Authenticate to access workflow actions and logs.</p>
+            </div>
+            <div class="auth-mode-switch" role="tablist" aria-label="Authentication mode">
+                <button type="button" class="auth-mode-btn active" id="auth-mode-signin" onclick="setAuthMode('signin')">Sign In</button>
+                <button type="button" class="auth-mode-btn" id="auth-mode-signup" onclick="setAuthMode('signup')">Sign Up</button>
             </div>
             <form class="auth-form" id="login-form" onsubmit="login(event)">
                 <div class="input-group">
@@ -707,7 +718,29 @@
                         <button type="button" class="demo-btn" onclick="fillDemoCredentials('patient_user', 'PatientUser@123')">Patient</button>
                     </div>
                 </div>
-                <p class="auth-error" id="auth-error"></p>
+                <p class="auth-error" id="auth-error-login"></p>
+            </form>
+
+            <form class="auth-form auth-form-hidden" id="signup-form" onsubmit="signup(event)">
+                <div class="input-group">
+                    <label for="signup-username">Username</label>
+                    <input type="text" id="signup-username" autocomplete="username" required>
+                </div>
+                <div class="input-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" autocomplete="email" required>
+                </div>
+                <div class="input-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" autocomplete="new-password" required>
+                </div>
+                <div class="input-group">
+                    <label for="signup-confirm-password">Confirm Password</label>
+                    <input type="password" id="signup-confirm-password" autocomplete="new-password" required>
+                </div>
+                <button class="btn btn-primary btn-lg" type="submit" id="btn-signup">Create Account</button>
+                <p class="auth-hint">New accounts are created with <strong>patient</strong> role.</p>
+                <p class="auth-error" id="auth-error-signup"></p>
             </form>
         </div>
     </div>

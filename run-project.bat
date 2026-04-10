@@ -96,6 +96,11 @@ if errorlevel 1 (
     echo.
     echo [ERROR] Failed to start services. Recent logs:
     !COMPOSE_CMD! logs --tail=100
+    echo.
+    echo [HINT] If build failed while pulling python:3.11-slim with TLS/HTTPS errors:
+    echo [HINT] - Open Docker Desktop ^> Settings ^> Resources ^> Proxies and verify/disable proxy settings
+    echo [HINT] - Retry image pull: docker pull python:3.11-slim
+    echo [HINT] - Check VPN/corporate proxy/firewall that may intercept Docker Hub HTTPS traffic
     pause
     exit /b 1
 )

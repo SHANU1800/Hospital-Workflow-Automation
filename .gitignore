@@ -1,0 +1,51 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python cache/artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build/distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs/runtime
+*.log
+logs/
+*.pid
+
+# Local databases/temp
+*.sqlite
+*.sqlite3
+*.db
+*.tmp
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker overrides/local compose files
+docker-compose.override.yml

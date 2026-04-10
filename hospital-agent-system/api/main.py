@@ -63,6 +63,7 @@ logger = logging.getLogger("api")
 from api.dependencies import get_current_user, require_roles
 from api.security import (
     create_access_token,
+    get_password_hash,
     get_jwt_expire_minutes,
     validate_jwt_config,
     verify_password,
@@ -100,6 +101,7 @@ from models.schemas import (
     InsuranceClaimResponse,
     InsuranceClaimUpdateRequest,
     LoginRequest,
+    SignupRequest,
     PatientBillingOverviewResponse,
     PatientBillingRecordResponse,
     CreateInsuranceClaimRequest,
@@ -279,6 +281,60 @@ async def login(request: LoginRequest):
             "sub": str(user.id),
             "username": user.username,
             "role": user.role,
+        },
+        expires_minutes=expires_in_minutes,
+    )
+
+    return TokenResponse(
+        access_token=token,
+        expires_in=expires_in_minutes * 60,
+    )
+
+
+@app.post("/signup", response_model=TokenResponse, summary="Create account and get JWT access token")
+async def signup(request: SignupRequest):
+    """Create a new user account (patient role) and issue JWT token."""
+    username = request.username.strip()
+    email = request.email.strip().lower()
+
+    async with async_session_factory() as session:
+        user_by_username_result = await session.execute(
+            select(User).where(func.lower(User.username) == username.lower())
+        )
+        user_by_username = user_by_username_result.scalar_one_or_none()
+        if user_by_username is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username already exists",
+            )
+
+        user_by_email_result = await session.execute(
+            select(User).where(func.lower(User.email) == email)
+        )
+        user_by_email = user_by_email_result.scalar_one_or_none()
+        if user_by_email is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already exists",
+            )
+
+        new_user = User(
+            username=username,
+            email=email,
+            password_hash=get_password_hash(request.password),
+            role=UserRole.PATIENT.value,
+            is_active=True,
+        )
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+
+    expires_in_minutes = get_jwt_expire_minutes()
+    token = create_access_token(
+        {
+            "sub": str(new_user.id),
+            "username": new_user.username,
+            "role": new_user.role,
         },
         expires_minutes=expires_in_minutes,
     )
@@ -591,9 +647,72 @@ async def list_agents(
     ),
 ):
     """List all registered agents and their capabilities."""
+    agent_tool_map = {
+        "SupervisorAgent": [],
+        "TriageAgent": [
+            "calculate_triage_score",
+            "classify_emergency_level",
+            "prioritize_waitlist",
+            "flag_critical_case",
+            "record_triage_assessment",
+        ],
+        "BedManagementAgent": [
+            "get_bed_inventory",
+            "find_best_bed_match",
+            "reserve_bed",
+            "assign_bed",
+            "release_bed",
+            "get_occupancy_snapshot",
+        ],
+        "LabAgent": [
+            "create_lab_order",
+            "collect_sample",
+            "track_sample_status",
+            "get_lab_result",
+            "flag_critical_lab_result",
+            "attach_lab_report",
+        ],
+        "BillingAgent": [
+            "initiate_billing_case",
+            "map_services_to_charge_codes",
+            "calculate_estimated_bill",
+            "generate_itemized_invoice",
+        ],
+        "InsuranceAgent": [
+            "get_insurance_eligibility",
+            "create_claim",
+            "validate_claim",
+            "submit_claim",
+            "track_claim_status",
+        ],
+        "SchedulerAgent": [
+            "check_doctor_availability",
+            "assign_doctor",
+            "get_patient_department",
+            "list_available_doctors",
+            "get_doctor_slots",
+            "book_appointment",
+            "list_doctor_appointments",
+            "update_appointment",
+            "get_appointment_details",
+        ],
+        "AlertAgent": ["send_notification"],
+        "DataAgent": ["get_patient_data"],
+    }
+
+    enriched_agents = []
+    for agent in orchestrator.list_agents():
+        name = agent.get("name", "")
+        enriched_agents.append(
+            {
+                **agent,
+                "mcp_tools": agent_tool_map.get(name, []),
+            }
+        )
+
     return {
-        "agents": orchestrator.list_agents(),
-        "total": len(orchestrator.list_agents()),
+        "agents": enriched_agents,
+        "total": len(enriched_agents),
         "hierarchy": {
             "coordinator": "SupervisorAgent",
             "domain_agents": [
@@ -1673,6 +1792,95 @@ async def staff_patch_billing_case(
         await session.refresh(case)
 
     return BillingCaseResponse(**case.to_dict())
+
+
+@app.post(
+    "/staff/billing/cases/{case_id}/a2a-workflow",
+    summary="Staff: run billing A2A workflow with insurance verification",
+)
+async def run_staff_billing_a2a_workflow(
+    case_id: int,
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.STAFF)),
+):
+    """Run billing inquiry workflow for a billing case and return execution timeline."""
+    async with async_session_factory() as session:
+        case_result = await session.execute(select(BillingCase).where(BillingCase.id == case_id))
+        case = case_result.scalar_one_or_none()
+        if case is None:
+            raise HTTPException(status_code=404, detail=f"Billing case {case_id} not found")
+
+        profile_result = await session.execute(
+            select(PatientInsuranceProfile).where(PatientInsuranceProfile.patient_id == case.patient_id)
+        )
+        profile = profile_result.scalar_one_or_none()
+
+    context = {
+        "patient_id": case.patient_id,
+        "billing_case_id": case.id,
+        "insurance_provider": (profile.insurance_provider if profile else "default"),
+        "member_id": (profile.member_id if profile else ""),
+        "plan_type": (profile.plan_type if profile else "general"),
+        "_user_id": current_user.id,
+        "_user_role": current_user.role,
+    }
+
+    agent_capabilities = orchestrator.get_agent_capabilities()
+    plan = await planner.plan(
+        event="billing_inquiry",
+        context=context,
+        agent_capabilities=agent_capabilities,
+    )
+
+    execution_log = await orchestrator.execute_plan(
+        plan,
+        user_id=current_user.id,
+        user_role=current_user.role,
+    )
+
+    insurance_decision = {
+        "status": "unknown",
+        "eligible": None,
+        "coverage_percentage": 0,
+        "issues": [],
+    }
+
+    for step in execution_log.steps:
+        if step.task != "verify_insurance":
+            continue
+        result = step.result if isinstance(step.result, dict) else {}
+        eligibility = result.get("eligibility") if isinstance(result.get("eligibility"), dict) else {}
+        eligible = eligibility.get("eligible")
+        insurance_decision = {
+            "status": (
+                "accepted"
+                if eligible is True
+                else "rejected" if eligible is False else "unknown"
+            ),
+            "eligible": eligible,
+            "coverage_percentage": eligibility.get("coverage_percentage", 0),
+            "issues": eligibility.get("issues", []) or [],
+        }
+        break
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": execution_log.status,
+            "execution_id": execution_log.execution_id,
+            "event": execution_log.event,
+            "billing_case_id": case.id,
+            "patient_id": case.patient_id,
+            "insurance_decision": insurance_decision,
+            "plan": plan.model_dump(mode="json"),
+            "execution": execution_log.model_dump(mode="json"),
+            "summary": {
+                "total_steps": len(execution_log.steps),
+                "completed": sum(1 for s in execution_log.steps if s.status == "completed"),
+                "failed": sum(1 for s in execution_log.steps if s.status == "failed"),
+                "total_duration_ms": execution_log.total_duration_ms,
+            },
+        },
+    )
 
 
 @app.get(

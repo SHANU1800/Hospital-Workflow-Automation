@@ -38,6 +38,13 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=256)
 
 
+class SignupRequest(BaseModel):
+    """Signup payload for creating a new patient account."""
+    username: str = Field(..., min_length=3, max_length=100)
+    email: str = Field(..., min_length=5, max_length=200)
+    password: str = Field(..., min_length=6, max_length=256)
+
+
 class TokenResponse(BaseModel):
     """Bearer token response model."""
     access_token: str
